@@ -1,6 +1,6 @@
 # TalkThrift — owner-managed thrift store
 
-A Next.js starter for a thrift shop where **you alone publish product listings**. The catalog starts empty: there are no demo or sample products. Customers can browse available items, but must sign up or log in before checkout. Sign-up collects full name, contact number, delivery address, email, and password. Customers can submit an order request and see a confirmation page. The owner uses the private `/admin` dashboard to manage listings.
+A Next.js starter for a thrift shop where i alone publishing product listings. The catalog starts empty: there are no demo or sample products. Customers can browse available items, but must sign up or log in before checkout. Sign-up collects full name, contact number, delivery address, email, and password. Customers can submit an order request and see a confirmation page. The owner uses the private `/admin` dashboard to manage listings.
 
 ## Included
 - Responsive storefront with search and category filters
