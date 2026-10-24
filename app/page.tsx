@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -26,7 +25,12 @@ export default function Home() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem('rewear-cart');
-      if (saved) setCart(JSON.parse(saved) as Product[]);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setCart(parsed as Product[]);
+        }
+      }
     } catch {
       // Ignore invalid saved cart data.
     }
@@ -35,29 +39,54 @@ export default function Home() {
   useEffect(() => {
     if (!supabase) return;
 
-    supabase
-      .from('products')
-      .select('*')
-      .eq('status', 'available')
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) setProducts(data as Product[]);
-      });
+    let cancelled = false;
+
+    async function loadProducts() {
+      const { data, error } = await supabase!
+        .from('products')
+        .select('*')
+        .eq('status', 'available')
+        .order('created_at', { ascending: false });
+
+      if (!cancelled && !error && data) {
+        setProducts(data as Product[]);
+      }
+    }
+
+    loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const categories = useMemo(
-    () => ['All', ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))],
+    () => [
+      'All',
+      ...Array.from(
+        new Set(products.map((p) => p.category).filter(Boolean))
+      ),
+    ],
     [products]
   );
 
   const filtered = products.filter((p) => {
-    const matchesCategory = category === 'All' || p.category === category;
-    const searchable = `${p.name} ${p.category} ${p.size ?? ''} ${p.condition}`.toLowerCase();
-    return matchesCategory && searchable.includes(query.toLowerCase());
+    const matchesCategory =
+      category === 'All' || p.category === category;
+
+    const searchable =
+      `${p.name} ${p.category} ${p.size ?? ''} ${p.condition}`
+        .toLowerCase();
+
+    return (
+      matchesCategory &&
+      searchable.includes(query.toLowerCase())
+    );
   });
 
   const saveCart = (next: Product[]) => {
     setCart(next);
+
     try {
       localStorage.setItem('rewear-cart', JSON.stringify(next));
     } catch {
@@ -76,14 +105,27 @@ export default function Home() {
   };
 
   const checkout = async () => {
-    if (!cart.length) return;
-
-    if (!supabase) {
-      setNotice('The store is temporarily unavailable. Please try again later.');
+    if (!cart.length) {
+      setNotice('Your bag is empty. Find a piece you love first.');
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    if (!supabase) {
+      setNotice(
+        'The store is temporarily unavailable. Please try again later.'
+      );
+      return;
+    }
+
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error) {
+      setNotice('Unable to check your account. Please try again.');
+      return;
+    }
 
     if (!session) {
       window.location.href = '/account?next=checkout';
@@ -103,7 +145,11 @@ export default function Home() {
       </div>
 
       <header className="nav">
-        <a className="brand" href="#top" aria-label="Talk Thrift home">
+        <a
+          className="brand"
+          href="#top"
+          aria-label="Talk Thrift home"
+        >
           Talk <span>Thrift.</span>
         </a>
 
@@ -116,7 +162,11 @@ export default function Home() {
 
         <button
           className="cartButton"
-          onClick={() => document.getElementById('cart')?.scrollIntoView({ behavior: 'smooth' })}
+          onClick={() =>
+            document
+              .getElementById('cart')
+              ?.scrollIntoView({ behavior: 'smooth' })
+          }
         >
           Bag ({cart.length})
         </button>
@@ -148,7 +198,11 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="heroImage heroArtwork" role="img" aria-label="Talk Thrift's Persian blue and white brand artwork">
+        <div
+          className="heroImage heroArtwork"
+          role="img"
+          aria-label="Talk Thrift's Persian blue and white brand artwork"
+        >
           <div className="artworkCircle artworkCircleOne" />
           <div className="artworkCircle artworkCircleTwo" />
 
@@ -174,7 +228,9 @@ export default function Home() {
         <div className="sectionHead">
           <div>
             <p className="eyebrow">THE TALK THRIFT COLLECTION</p>
-            <h2>Find something <em>you.</em></h2>
+            <h2>
+              Find something <em>you.</em>
+            </h2>
           </div>
 
           <p>
@@ -207,15 +263,35 @@ export default function Home() {
         </div>
 
         <div className="catalogCount">
-          {filtered.length} {filtered.length === 1 ? 'piece' : 'pieces'} to explore
+          {filtered.length}{' '}
+          {filtered.length === 1 ? 'piece' : 'pieces'} to explore
         </div>
 
         <div className="productGrid">
           {filtered.map((p) => (
-            <article className="product" key={p.id}>
+            <article
+              className="product"
+              key={p.id}
+              onClick={() => {
+                window.location.href = `/product/${p.id}`;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  window.location.href = `/product/${p.id}`;
+                }
+              }}
+              role="link"
+              tabIndex={0}
+              aria-label={`View details for ${p.name}`}
+              style={{ cursor: 'pointer' }}
+            >
               <div className="productImage">
                 {p.image_url ? (
-                  <img src={p.image_url} alt={p.name} loading="lazy" />
+                  <img
+                    src={p.image_url}
+                    alt={p.name}
+                    loading="lazy"
+                  />
                 ) : (
                   <div className="noImage">
                     <span>TT</span>
@@ -227,7 +303,10 @@ export default function Home() {
 
                 <button
                   className="add"
-                  onClick={() => addToCart(p)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToCart(p);
+                  }}
                   aria-label={`Add ${p.name} to bag`}
                 >
                   +
@@ -237,8 +316,11 @@ export default function Home() {
               <div className="productInfo">
                 <div>
                   <h3>{p.name}</h3>
-                  <p>{p.category} · {p.size || 'One size'}</p>
+                  <p>
+                    {p.category} · {p.size || 'One size'}
+                  </p>
                 </div>
+
                 <strong>{formatPrice(p.price)}</strong>
               </div>
             </article>
@@ -248,7 +330,13 @@ export default function Home() {
         {filtered.length === 0 && (
           <div className="emptyCatalog">
             <span className="emptyMark">TT</span>
-            <h3>{products.length === 0 ? 'Our racks are waiting.' : 'No matching finds just yet.'}</h3>
+
+            <h3>
+              {products.length === 0
+                ? 'Our racks are waiting.'
+                : 'No matching finds just yet.'}
+            </h3>
+
             <p>
               {products.length === 0
                 ? 'We are getting ready for our first collection. Check back when new pieces arrive.'
@@ -297,11 +385,15 @@ export default function Home() {
       <section className="cartSection" id="cart">
         <div>
           <p className="eyebrow">SAVED FOR YOU</p>
-          <h2>Your bag <em>({cart.length})</em></h2>
+          <h2>
+            Your bag <em>({cart.length})</em>
+          </h2>
         </div>
 
         {cart.length === 0 ? (
-          <p className="empty">Nothing in your bag yet. Your next good find is waiting.</p>
+          <p className="empty">
+            Nothing in your bag yet. Your next good find is waiting.
+          </p>
         ) : (
           <>
             <div className="cartItems">
@@ -309,8 +401,13 @@ export default function Home() {
                 <div className="cartItem" key={`${p.id}-${i}`}>
                   <span>{p.name}</span>
                   <strong>{formatPrice(p.price)}</strong>
+
                   <button
-                    onClick={() => saveCart(cart.filter((_, index) => index !== i))}
+                    onClick={() =>
+                      saveCart(
+                        cart.filter((_, index) => index !== i)
+                      )
+                    }
                   >
                     Remove
                   </button>
@@ -320,7 +417,14 @@ export default function Home() {
 
             <div className="cartTotal">
               <span>Subtotal</span>
-              <strong>{formatPrice(cart.reduce((sum, p) => sum + Number(p.price), 0))}</strong>
+              <strong>
+                {formatPrice(
+                  cart.reduce(
+                    (sum, p) => sum + Number(p.price),
+                    0
+                  )
+                )}
+              </strong>
             </div>
 
             <button className="primary" onClick={checkout}>
@@ -336,7 +440,12 @@ export default function Home() {
         {notice && (
           <p className="notice" role="status">
             {notice}
-            <button className="dismissNotice" onClick={() => setNotice('')} aria-label="Dismiss notice">
+
+            <button
+              className="dismissNotice"
+              onClick={() => setNotice('')}
+              aria-label="Dismiss notice"
+            >
               ×
             </button>
           </p>
@@ -350,7 +459,9 @@ export default function Home() {
 
         <p>Handpicked finds, ready for a new home.</p>
 
-        <small>© {new Date().getFullYear()} Talk Thrift. Made with care.</small>
+        <small>
+          © {new Date().getFullYear()} Talk Thrift. Made with care.
+        </small>
       </footer>
     </main>
   );
