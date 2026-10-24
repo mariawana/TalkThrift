@@ -798,3 +798,143 @@ footer small {
   .accountPanel, .checkoutPanel, .successPanel { padding: 22px; margin: 25px auto; }
   .accountPanel h1, .checkoutPanel h1, .successPanel h1 { font-size: 30px; }
 }
+
+
+.productDetails {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  color: #173b68;
+}
+
+.backLink {
+  display: inline-block;
+  margin-bottom: 28px;
+  color: #173b68;
+  text-decoration: none;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.mainPhoto {
+  background: #f1f5fa;
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 300px;
+  aspect-ratio: 4 / 5;
+}
+
+.mainPhoto img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.photoThumbnails {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.photoThumbnails button {
+  width: 68px;
+  height: 78px;
+  padding: 3px;
+  border: 1px solid #d5dfed;
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+}
+
+.photoThumbnails img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detailsInfo h1 {
+  font-size: clamp(28px, 4vw, 42px);
+  margin: 8px 0;
+}
+
+.detailCategory {
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #607997;
+}
+
+.detailPrice {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 16px 0 24px;
+}
+
+.detailDescription,
+.shippingNote {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid #dce5f0;
+}
+
+.detailDescription h2,
+.shippingNote h2 {
+  font-size: 18px;
+}
+
+.detailActions {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.detailActions button,
+.shareAction {
+  padding: 13px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.detailActions .primary {
+  border: none;
+  background: #244f85;
+  color: white;
+}
+
+.secondaryAction,
+.shareAction {
+  border: 1px solid #244f85;
+  background: white;
+  color: #244f85;
+}
+
+.shareAction {
+  margin-top: 12px;
+}
+
+.shippingNote small {
+  display: block;
+  line-height: 1.6;
+  color: #607997;
+}
+
+@media (max-width: 700px) {
+  .detailsGrid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .productDetails {
+    padding: 24px 16px 48px;
+  }
+
+  .mainPhoto {
+    min-height: 240px;
+  }
+}
+
