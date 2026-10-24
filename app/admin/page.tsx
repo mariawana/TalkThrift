@@ -2,7 +2,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseConfigCheck } from '@/lib/supabase';
 
 type Product = {
   id: string;
@@ -108,18 +108,19 @@ export default function Admin() {
     }
   };
 
-  const add = async (e: FormEvent<HTMLFormElement>) => {
+  const addProduct = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!supabase || !session) {
-      setMessage('Please sign in before adding a product.');
+      setMessage('Please log in first.');
       return;
     }
 
     const price = Number(form.price);
 
-    if (!Number.isFinite(price) || price < 0) {
-      setMessage('Please enter a valid price.');
+    if (!form.name.trim() || !form.category.trim() || !form.price.trim() ||
+        !Number.isFinite(price) || price < 0) {
+      setMessage('Please enter a product name, category, and valid price.');
       return;
     }
 
@@ -140,21 +141,22 @@ export default function Admin() {
 
       if (error) {
         setMessage(error.message);
-      } else {
-        setMessage('Product added successfully.');
-
-        setForm({
-          name: '',
-          category: 'Tops',
-          size: '',
-          condition: 'Very good',
-          price: '',
-          image_url: '',
-          description: '',
-        });
-
-        await load();
+        return;
       }
+
+      setMessage('Product added successfully!');
+
+      setForm({
+        name: '',
+        category: 'Tops',
+        size: '',
+        condition: 'Very good',
+        price: '',
+        image_url: '',
+        description: '',
+      });
+
+      await load();
     } catch {
       setMessage('Unable to add product. Please try again.');
     } finally {
@@ -162,65 +164,16 @@ export default function Admin() {
     }
   };
 
-  const updateStatus = async (product: Product, status: string) => {
+  const logout = async () => {
     if (!supabase) return;
 
-    setMessage('');
-
-    const { error } = await supabase
-      .from('products')
-      .update({ status })
-      .eq('id', product.id);
+    const { error } = await supabase.auth.signOut();
 
     if (error) {
       setMessage(error.message);
     } else {
-      setMessage('Product status updated.');
-      await load();
-    }
-  };
-
-  const remove = async (product: Product) => {
-    if (!supabase) return;
-
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${product.name}"?`,
-    );
-
-    if (!confirmed) return;
-
-    setMessage('');
-
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', product.id);
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage('Product deleted.');
-      await load();
-    }
-  };
-
-  const signOut = async () => {
-    if (!supabase) return;
-
-    setBusy(true);
-
-    try {
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        setMessage(error.message);
-      } else {
-        setSession(null);
-        setProducts([]);
-        setMessage('Signed out successfully.');
-      }
-    } finally {
-      setBusy(false);
+      setMessage('Logged out successfully.');
+      setProducts([]);
     }
   };
 
@@ -233,13 +186,29 @@ export default function Admin() {
 
         <section className="adminPanel">
           <h1>Store dashboard</h1>
+
+          <p>Supabase configuration diagnostic</p>
+
           <p>
-            Supabase is not configured. Check your environment variables in
-            Vercel.
+            URL detected:{' '}
+            <strong>
+              {supabaseConfigCheck.hasUrl ? 'YES' : 'NO'}
+            </strong>
           </p>
 
-          <code>NEXT_PUBLIC_SUPABASE_URL</code>
-          <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code>
+          <p>
+            Publishable key detected:{' '}
+            <strong>
+              {supabaseConfigCheck.hasPublishableKey ? 'YES' : 'NO'}
+            </strong>
+          </p>
+
+          <p>
+            {supabaseConfigCheck.hasUrl &&
+            supabaseConfigCheck.hasPublishableKey
+              ? 'Both values are detected. Check the Supabase client configuration.'
+              : 'One or both values are missing from the deployed build. Check Vercel environment variables and redeploy.'}
+          </p>
 
           <a href="/">← Back to store</a>
         </section>
@@ -249,248 +218,174 @@ export default function Admin() {
 
   return (
     <main className="adminWrap">
-      <header className="adminHeader">
-        <a href="/" className="brand">
-          TalkThrift
-        </a>
+      <a href="/" className="brand">
+        TalkThrift
+      </a>
 
-        <span>OWNER DASHBOARD</span>
+      <section className="adminPanel">
+        <h1>Store dashboard</h1>
 
-        <a href="/">View store ↗</a>
-      </header>
+        {message && <p role="status">{message}</p>}
 
-      {!session ? (
-        <form className="adminPanel" onSubmit={login}>
-          <p className="eyebrow">PRIVATE ACCESS</p>
-          <h1>Owner sign in</h1>
-          <p>Sign in using your store-owner account.</p>
+        {!session ? (
+          <form
+            onSubmit={login}
+            className="adminForm"
+          >
+            <h2>Admin login</h2>
 
-          <label>
-            Email
+            <label htmlFor="admin-email">Email</label>
             <input
+              id="admin-email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
               required
             />
-          </label>
 
-          <label>
-            Password
+            <label htmlFor="admin-password">Password</label>
             <input
+              id="admin-password"
               type="password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
               required
             />
-          </label>
 
-          <button className="primary" type="submit" disabled={busy}>
-            {busy ? 'Please wait...' : 'Sign in'} <span>↗</span>
-          </button>
-
-          <a href="/">← Back to store</a>
-
-          {message && <p className="notice">{message}</p>}
-        </form>
-      ) : (
-        <div className="dashboard">
-          <div className="dashboardTitle">
-            <div>
-              <p className="eyebrow">YOUR STORE, YOUR RULES</p>
-              <h1>
-                Manage your <em>pieces.</em>
-              </h1>
+            <button type="submit" disabled={busy}>
+              {busy ? 'Please wait...' : 'Log in'}
+            </button>
+          </form>
+        ) : (
+          <>
+            <div className="adminHeader">
+              <h2>Add product</h2>
+              <button type="button" onClick={logout} disabled={busy}>
+                Log out
+              </button>
             </div>
 
-            <button
-              className="secondary"
-              type="button"
-              onClick={signOut}
-              disabled={busy}
-            >
-              {busy ? 'Please wait...' : 'Sign out'}
-            </button>
-          </div>
+            <form onSubmit={addProduct} className="adminForm">
+              <label htmlFor="product-name">Product name</label>
+              <input
+                id="product-name"
+                value={form.name}
+                onChange={(e) =>
+                  setForm({ ...form, name: e.target.value })
+                }
+                required
+              />
 
-          <div className="adminColumns">
-            <form className="adminPanel" onSubmit={add}>
-              <h2>Add a product</h2>
+              <label htmlFor="product-category">Category</label>
+              <select
+                id="product-category"
+                value={form.category}
+                onChange={(e) =>
+                  setForm({ ...form, category: e.target.value })
+                }
+              >
+                <option value="Tops">Tops</option>
+                <option value="Bottoms">Bottoms</option>
+                <option value="Outerwear">Outerwear</option>
+                <option value="Shoes">Shoes</option>
+                <option value="Accessories">Accessories</option>
+                <option value="Others">Others</option>
+              </select>
 
-              <label>
-                Product name
-                <input
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm({ ...form, name: e.target.value })
-                  }
-                  required
-                />
-              </label>
+              <label htmlFor="product-size">Size</label>
+              <input
+                id="product-size"
+                value={form.size}
+                onChange={(e) =>
+                  setForm({ ...form, size: e.target.value })
+                }
+              />
 
-              <label>
-                Category
-                <select
-                  value={form.category}
-                  onChange={(e) =>
-                    setForm({ ...form, category: e.target.value })
-                  }
-                >
-                  {[
-                    'Tops',
-                    'Bottoms',
-                    'Dresses',
-                    'Outerwear',
-                    'Shoes',
-                    'Accessories',
-                    'Bags',
-                    'Other',
-                  ].map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <label htmlFor="product-condition">Condition</label>
+              <select
+                id="product-condition"
+                value={form.condition}
+                onChange={(e) =>
+                  setForm({ ...form, condition: e.target.value })
+                }
+              >
+                <option value="Brand new">Brand new</option>
+                <option value="Like new">Like new</option>
+                <option value="Very good">Very good</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+              </select>
 
-              <label>
-                Size
-                <input
-                  value={form.size}
-                  onChange={(e) =>
-                    setForm({ ...form, size: e.target.value })
-                  }
-                  placeholder="S, M, L, or One size"
-                />
-              </label>
+              <label htmlFor="product-price">Price (₱)</label>
+              <input
+                id="product-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.price}
+                onChange={(e) =>
+                  setForm({ ...form, price: e.target.value })
+                }
+                required
+              />
 
-              <label>
-                Condition
-                <select
-                  value={form.condition}
-                  onChange={(e) =>
-                    setForm({ ...form, condition: e.target.value })
-                  }
-                >
-                  {['Like new', 'Very good', 'Good', 'Fair'].map(
-                    (condition) => (
-                      <option key={condition} value={condition}>
-                        {condition}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
+              <label htmlFor="product-image">Image URL</label>
+              <input
+                id="product-image"
+                type="url"
+                placeholder="https://..."
+                value={form.image_url}
+                onChange={(e) =>
+                  setForm({ ...form, image_url: e.target.value })
+                }
+              />
 
-              <label>
-                Price (PHP)
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) =>
-                    setForm({ ...form, price: e.target.value })
-                  }
-                  required
-                />
-              </label>
+              <label htmlFor="product-description">Description</label>
+              <textarea
+                id="product-description"
+                value={form.description}
+                onChange={(e) =>
+                  setForm({ ...form, description: e.target.value })
+                }
+              />
 
-              <label>
-                Image URL
-                <input
-                  type="url"
-                  value={form.image_url}
-                  onChange={(e) =>
-                    setForm({ ...form, image_url: e.target.value })
-                  }
-                  placeholder="https://..."
-                />
-              </label>
-
-              <label>
-                Description
-                <textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                />
-              </label>
-
-              <button className="primary" type="submit" disabled={busy}>
-                {busy ? 'Saving...' : 'Publish product'} <span>↗</span>
+              <button type="submit" disabled={busy}>
+                {busy ? 'Please wait...' : 'Add product'}
               </button>
             </form>
 
-            <section className="adminPanel inventory">
-              <div className="inventoryHead">
-                <h2>Inventory</h2>
+            <h2>Products ({products.length})</h2>
 
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={() => void load()}
-                >
-                  Refresh
-                </button>
-              </div>
+            {products.length === 0 ? (
+              <p>No products found yet.</p>
+            ) : (
+              <div className="productList">
+                {products.map((product) => (
+                  <article key={product.id} className="productItem">
+                    {product.image_url && (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        width="100"
+                      />
+                    )}
 
-              {products.length === 0 ? (
-                <p>No products yet. Add your first item.</p>
-              ) : (
-                products.map((product) => (
-                  <article className="inventoryItem" key={product.id}>
                     <div>
-                      {product.image_url && (
-                        <img src={product.image_url} alt={product.name} />
-                      )}
-
-                      <div>
-                        <strong>{product.name}</strong>
-                        <p>
-                          ₱{Number(product.price).toLocaleString('en-PH')} ·{' '}
-                          {product.size || 'One size'}
-                        </p>
-                        <small>{product.status}</small>
-                      </div>
-                    </div>
-
-                    <div className="inventoryActions">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void updateStatus(
-                            product,
-                            product.status === 'available'
-                              ? 'sold'
-                              : 'available',
-                          )
-                        }
-                      >
-                        {product.status === 'available'
-                          ? 'Mark sold'
-                          : 'Mark available'}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => void remove(product)}
-                      >
-                        Delete
-                      </button>
+                      <h3>{product.name}</h3>
+                      <p>{product.category} · {product.size || 'No size'}</p>
+                      <p>₱{Number(product.price).toLocaleString('en-PH')}</p>
+                      <p>{product.condition} · {product.status}</p>
+                      {product.description && <p>{product.description}</p>}
                     </div>
                   </article>
-                ))
-              )}
-            </section>
-          </div>
-
-          {message && <p className="notice">{message}</p>}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </main>
   );
 }
