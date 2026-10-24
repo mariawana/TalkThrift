@@ -15,9 +15,10 @@ type Product = {
   image_urls?: string[] | null;
   description: string | null;
   status: string;
+  created_at?: string;
 };
 
-const MAX_PHOTOS = 20;
+const MAX_TOTAL_PHOTO_BYTES = 50 * 1024 * 1024;
 const BUCKET = 'product-photos';
 
 export default function Admin() {
@@ -28,6 +29,7 @@ export default function Admin() {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '',
@@ -36,7 +38,16 @@ export default function Admin() {
     condition: 'Very good',
     price: '',
     description: '',
+    status: 'available',
   });
+
+  const totalPhotoBytes = photos.reduce(
+    (sum, photo) => sum + photo.size,
+    0
+  );
+
+  const formatBytes = (bytes: number) =>
+    `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 
   useEffect(() => {
     if (!supabase) return;
@@ -45,10 +56,12 @@ export default function Admin() {
 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
+
       if (error) {
         setMessage(error.message);
         return;
       }
+
       setSession(data.session);
     });
 
@@ -73,7 +86,7 @@ export default function Admin() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      setMessage(error.message);
+      setMessage(`Unable to load products: ${error.message}`);
     } else {
       setProducts((data || []) as Product[]);
     }
@@ -100,10 +113,17 @@ export default function Admin() {
         password,
       });
 
-      if (error) setMessage(error.message);
-      else setMessage('Logged in successfully.');
-    } catch {
-      setMessage('Unable to sign in. Please try again.');
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMessage('Logged in successfully.');
+      }
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Login failed: ${error.message}`
+          : 'Unable to sign in. Please try again.'
+      );
     } finally {
       setBusy(false);
     }
@@ -114,86 +134,110 @@ export default function Admin() {
 
     const selected = Array.from(files);
 
-    if (selected.length > MAX_PHOTOS) {
-      setPhotos([]);
-      setMessage('Please select no more than 20 photos.');
-      return;
-    }
-
     const invalid = selected.find(
       (file) => !file.type.startsWith('image/')
     );
 
     if (invalid) {
-      setPhotos([]);
       setMessage('Please select image files only.');
       return;
     }
 
-    const tooLarge = selected.find(
-      (file) => file.size > 10 * 1024 * 1024
+    const combined = [...photos, ...selected];
+
+    const uniqueFiles = combined.filter(
+      (file, index, array) =>
+        array.findIndex(
+          (other) =>
+            other.name === file.name &&
+            other.size === file.size &&
+            other.lastModified === file.lastModified
+        ) === index
     );
 
-    if (tooLarge) {
-      setPhotos([]);
-      setMessage('Each photo must be 10 MB or smaller.');
+    const total = uniqueFiles.reduce(
+      (sum, file) => sum + file.size,
+      0
+    );
+
+    if (total > MAX_TOTAL_PHOTO_BYTES) {
+      setMessage(
+        'The combined photo size exceeds 50 MB. Remove some photos or choose smaller files.'
+      );
       return;
     }
 
-    setPhotos(selected);
-    setMessage(`${selected.length} photo(s) selected.`);
+    setPhotos(uniqueFiles);
+    setMessage(`${uniqueFiles.length} photo(s) selected.`);
   };
 
-  const addProduct = async (e: FormEvent<HTMLFormElement>) => {
+  const removePhoto = (indexToRemove: number) => {
+    setPhotos((current) =>
+      current.filter((_, index) => index !== indexToRemove)
+    );
+    setMessage('Photo removed from selection.');
+  };
+
+  const resetForm = () => {
+    setForm({
+      name: '',
+      category: 'Tops',
+      size: '',
+      condition: 'Very good',
+      price: '',
+      description: '',
+      status: 'available',
+    });
+
+    setPhotos([]);
+    setEditingId(null);
+
+    const input = document.getElementById(
+      'product-photos'
+    ) as HTMLInputElement | null;
+
+    if (input) input.value = '';
+  };
+
+  const saveProduct = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!supabase || !session) {
+    if (!supabase || !session?.user) {
       setMessage('Please log in first.');
       return;
     }
 
-    const price = Number(form.price);
-
-    if (
-      !form.name.trim() ||
-      !form.category.trim() ||
-      !form.price.trim() ||
-      !Number.isFinite(price) ||
-      price < 0
-    ) {
-      setMessage('Enter a product name, category, and valid price.');
+    if (!form.name.trim() || !form.price || Number(form.price) < 0) {
+      setMessage('Enter a product name and valid price.');
       return;
     }
 
-    if (photos.length > MAX_PHOTOS) {
-      setMessage('You can upload a maximum of 20 photos.');
+    if (totalPhotoBytes > MAX_TOTAL_PHOTO_BYTES) {
+      setMessage('Photos must total 50 MB or less.');
       return;
     }
 
     setBusy(true);
-    setMessage('Uploading product photos...');
-
-    const uploadedPaths: string[] = [];
+    setMessage('');
 
     try {
       const imageUrls: string[] = [];
 
-      for (const file of photos) {
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      for (const photo of photos) {
+        const safeName = photo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
         const path = `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
 
         const { error: uploadError } = await supabase.storage
           .from(BUCKET)
-          .upload(path, file, {
+          .upload(path, photo, {
             cacheControl: '3600',
             upsert: false,
+            contentType: photo.type,
           });
 
         if (uploadError) {
           throw new Error(`Photo upload failed: ${uploadError.message}`);
         }
-
-        uploadedPaths.push(path);
 
         const { data } = supabase.storage
           .from(BUCKET)
@@ -202,52 +246,136 @@ export default function Admin() {
         imageUrls.push(data.publicUrl);
       }
 
-      const { error: insertError } = await supabase
-        .from('products')
-        .insert({
-          name: form.name.trim(),
-          category: form.category,
-          size: form.size.trim() || null,
-          condition: form.condition,
-          price,
-          image_url: imageUrls[0] || null,
+      const productData = {
+        name: form.name.trim(),
+        category: form.category,
+        size: form.size.trim() || null,
+        condition: form.condition,
+        price: Number(form.price),
+        description: form.description.trim() || null,
+        status: form.status,
+      };
+
+      if (editingId) {
+        const { data: oldProduct, error: readError } = await supabase
+          .from('products')
+          .select('image_urls, image_url')
+          .eq('id', editingId)
+          .single();
+
+        if (readError) throw readError;
+
+        const oldUrls: string[] =
+          oldProduct.image_urls?.length
+            ? oldProduct.image_urls
+            : oldProduct.image_url
+              ? [oldProduct.image_url]
+              : [];
+
+        const allUrls = [...oldUrls, ...imageUrls];
+
+        const { error } = await supabase
+          .from('products')
+          .update({
+            ...productData,
+            image_urls: allUrls,
+            image_url: allUrls[0] || null,
+          })
+          .eq('id', editingId);
+
+        if (error) throw error;
+        setMessage('Product updated successfully.');
+      } else {
+        const { error } = await supabase.from('products').insert({
+          ...productData,
           image_urls: imageUrls,
-          description: form.description.trim() || null,
-          status: 'available',
+          image_url: imageUrls[0] || null,
         });
 
-      if (insertError) throw new Error(insertError.message);
+        if (error) throw error;
+        setMessage('Product added successfully.');
+      }
 
-      setMessage('Product and photos added successfully!');
-
-      setForm({
-        name: '',
-        category: 'Tops',
-        size: '',
-        condition: 'Very good',
-        price: '',
-        description: '',
-      });
-
-      setPhotos([]);
-
-      const fileInput = document.getElementById(
-        'product-photos'
-      ) as HTMLInputElement | null;
-
-      if (fileInput) fileInput.value = '';
-
+      resetForm();
       await load();
     } catch (error) {
-      const reason =
-        error instanceof Error ? error.message : 'Please try again.';
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : 'Something went wrong while saving the product.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
 
-      setMessage(reason);
+  const startEdit = (product: Product) => {
+    setEditingId(product.id);
+    setForm({
+      name: product.name,
+      category: product.category || 'Tops',
+      size: product.size || '',
+      condition: product.condition || 'Very good',
+      price: String(product.price),
+      description: product.description || '',
+      status: product.status || 'available',
+    });
+    setPhotos([]);
+    setMessage(
+      'Editing product. Existing photos will be kept; selected photos will be added.'
+    );
 
-      // Clean up uploaded files if saving the product fails.
-      if (uploadedPaths.length > 0 && supabase) {
-        await supabase.storage.from(BUCKET).remove(uploadedPaths);
-      }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const updateStatus = async (
+    productId: string,
+    status: string
+  ) => {
+    if (!supabase) return;
+
+    setMessage('');
+    const { error } = await supabase
+      .from('products')
+      .update({ status })
+      .eq('id', productId);
+
+    if (error) {
+      setMessage(`Status update failed: ${error.message}`);
+    } else {
+      setMessage('Product status updated.');
+      await load();
+    }
+  };
+
+  const deleteProduct = async (product: Product) => {
+    if (!supabase) return;
+
+    const confirmed = window.confirm(
+      `Delete "${product.name}"? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    setBusy(true);
+    setMessage('');
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id);
+
+      if (error) throw error;
+
+      setMessage('Product deleted.');
+      await load();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Delete failed: ${error.message}`
+          : 'Unable to delete product.'
+      );
     } finally {
       setBusy(false);
     }
@@ -258,263 +386,380 @@ export default function Admin() {
 
     const { error } = await supabase.auth.signOut();
 
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage('Logged out successfully.');
-      setProducts([]);
-    }
+    setMessage(error ? error.message : 'Logged out.');
+    resetForm();
   };
 
   if (!supabase) {
     return (
-      <main className="adminWrap">
-        <a href="/" className="brand">TalkThrift</a>
-        <section className="adminPanel">
-          <h1>Store dashboard</h1>
-          <p>Supabase configuration diagnostic</p>
-          <p>
-            URL detected:{' '}
-            <strong>{supabaseConfigCheck.hasUrl ? 'YES' : 'NO'}</strong>
-          </p>
-          <p>
-            Publishable key detected:{' '}
-            <strong>
-              {supabaseConfigCheck.hasPublishableKey ? 'YES' : 'NO'}
-            </strong>
-          </p>
-          <p>Check your Vercel environment variables and redeploy if missing.</p>
-          <a href="/">← Back to store</a>
-        </section>
+      <main style={{ padding: 24 }}>
+        <h1>Talk Thrift Admin</h1>
+        <p>Supabase is not configured. Check your Vercel environment variables.</p>
+        <pre>{JSON.stringify(supabaseConfigCheck, null, 2)}</pre>
       </main>
     );
   }
 
+  if (!session) {
+    return (
+      <main style={{ maxWidth: 420, margin: '40px auto', padding: 20 }}>
+        <h1>Talk Thrift Admin</h1>
+        <p>Log in to manage your thrift products.</p>
+
+        <form onSubmit={login}>
+          <label htmlFor="admin-email">Email</label>
+          <input
+            id="admin-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            style={{ display: 'block', width: '100%', margin: '8px 0 16px', padding: 10 }}
+          />
+
+          <label htmlFor="admin-password">Password</label>
+          <input
+            id="admin-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            style={{ display: 'block', width: '100%', margin: '8px 0 16px', padding: 10 }}
+          />
+
+          <button type="submit" disabled={busy}>
+            {busy ? 'Logging in...' : 'Log in'}
+          </button>
+        </form>
+
+        {message && <p>{message}</p>}
+      </main>
+    );
+  }
+
+
   return (
-    <main className="adminWrap">
-      <a href="/" className="brand">TalkThrift</a>
+    <main style={{ maxWidth: 900, margin: '24px auto', padding: 16 }}>
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <h1>Talk Thrift Admin</h1>
+          <p>Manage your thrift products.</p>
+        </div>
+        <button type="button" onClick={logout}>
+          Log out
+        </button>
+      </header>
 
-      <section className="adminPanel">
-        <h1>Store dashboard</h1>
+      {message && (
+        <p
+          role="status"
+          style={{
+            padding: 12,
+            background: '#f1f5f9',
+            color: '#172554',
+            borderRadius: 8,
+            overflowWrap: 'anywhere',
+          }}
+        >
+          {message}
+        </p>
+      )}
 
-        {message && <p role="status">{message}</p>}
+      <section
+        style={{
+          border: '1px solid #d1d5db',
+          borderRadius: 12,
+          padding: 16,
+          marginTop: 20,
+        }}
+      >
+        <h2>{editingId ? 'Edit Product' : 'Add New Product'}</h2>
 
-        {!session ? (
-          <form onSubmit={login} className="adminForm">
-            <h2>Admin login</h2>
+        <form onSubmit={saveProduct}>
+          <label htmlFor="product-name">Product name</label>
+          <input
+            id="product-name"
+            value={form.name}
+            onChange={(e) =>
+              setForm({ ...form, name: e.target.value })
+            }
+            required
+            style={fieldStyle}
+          />
 
-            <label htmlFor="admin-email">Email</label>
-            <input
-              id="admin-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <label htmlFor="product-category">Category</label>
+          <select
+            id="product-category"
+            value={form.category}
+            onChange={(e) =>
+              setForm({ ...form, category: e.target.value })
+            }
+            style={fieldStyle}
+          >
+            <option>Tops</option>
+            <option>Bottoms</option>
+            <option>Dresses</option>
+            <option>Outerwear</option>
+            <option>Shoes</option>
+            <option>Bags</option>
+            <option>Accessories</option>
+            <option>Others</option>
+          </select>
 
-            <label htmlFor="admin-password">Password</label>
-            <input
-              id="admin-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+          <label htmlFor="product-size">Size</label>
+          <input
+            id="product-size"
+            value={form.size}
+            onChange={(e) =>
+              setForm({ ...form, size: e.target.value })
+            }
+            placeholder="e.g. M, L, 28"
+            style={fieldStyle}
+          />
 
-            <button type="submit" disabled={busy}>
-              {busy ? 'Please wait...' : 'Log in'}
-            </button>
-          </form>
-        ) : (
-          <>
-            <div className="adminHeader">
-              <h2>Add product</h2>
-              <button type="button" onClick={logout} disabled={busy}>
-                Log out
-              </button>
+          <label htmlFor="product-condition">Condition</label>
+          <select
+            id="product-condition"
+            value={form.condition}
+            onChange={(e) =>
+              setForm({ ...form, condition: e.target.value })
+            }
+            style={fieldStyle}
+          >
+            <option>Brand new</option>
+            <option>Like new</option>
+            <option>Very good</option>
+            <option>Good</option>
+            <option>Fair</option>
+          </select>
+
+          <label htmlFor="product-price">Price (₱)</label>
+          <input
+            id="product-price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.price}
+            onChange={(e) =>
+              setForm({ ...form, price: e.target.value })
+            }
+            required
+            style={fieldStyle}
+          />
+
+          <label htmlFor="product-description">Description</label>
+          <textarea
+            id="product-description"
+            value={form.description}
+            onChange={(e) =>
+              setForm({ ...form, description: e.target.value })
+            }
+            rows={4}
+            style={fieldStyle}
+          />
+
+          <label htmlFor="product-status">Status</label>
+          <select
+            id="product-status"
+            value={form.status}
+            onChange={(e) =>
+              setForm({ ...form, status: e.target.value })
+            }
+            style={fieldStyle}
+          >
+            <option value="available">Available</option>
+            <option value="reserved">Reserved</option>
+            <option value="sold">Sold</option>
+          </select>
+
+          <label htmlFor="product-photos">
+            Product photos {editingId ? '(optional: add more)' : ''}
+          </label>
+          <input
+            id="product-photos"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => choosePhotos(e.target.files)}
+            style={{ display: 'block', width: '100%', margin: '10px 0' }}
+          />
+
+          <p>
+            Selected: {photos.length} photo(s) · {formatBytes(totalPhotoBytes)} / 50 MB
+          </p>
+          <p>
+            You can select photos in batches. The combined size must not exceed 50 MB.
+          </p>
+
+          {photos.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                gap: 10,
+                margin: '12px 0',
+              }}
+            >
+              {photos.map((photo, index) => (
+                <div key={`${photo.name}-${photo.lastModified}-${index}`}>
+                  <img
+                    src={URL.createObjectURL(photo)}
+                    alt={photo.name}
+                    style={{
+                      width: '100%',
+                      height: 110,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                    }}
+                  />
+                  <p style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
+                    {photo.name}
+                  </p>
+                  <p style={{ fontSize: 12 }}>{formatBytes(photo.size)}</p>
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(index)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
+          )}
 
-            <form onSubmit={addProduct} className="adminForm">
-              <label htmlFor="product-name">Product name</label>
-              <input
-                id="product-name"
-                value={form.name}
-                onChange={(e) =>
-                  setForm({ ...form, name: e.target.value })
-                }
-                required
-              />
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+            <button type="submit" disabled={busy}>
+              {busy
+                ? 'Saving...'
+                : editingId
+                  ? 'Save Changes'
+                  : 'Add Product'}
+            </button>
 
-              <label htmlFor="product-category">Category</label>
-              <select
-                id="product-category"
-                value={form.category}
-                onChange={(e) =>
-                  setForm({ ...form, category: e.target.value })
-                }
-              >
-                <option value="Tops">Tops</option>
-                <option value="Bottoms">Bottoms</option>
-                <option value="Outerwear">Outerwear</option>
-                <option value="Shoes">Shoes</option>
-                <option value="Accessories">Accessories</option>
-                <option value="Others">Others</option>
-              </select>
+            {editingId && (
+              <button type="button" onClick={resetForm}>
+                Cancel Edit
+              </button>
+            )}
+          </div>
+        </form>
+      </section>
 
-              <label htmlFor="product-size">Size</label>
-              <input
-                id="product-size"
-                value={form.size}
-                onChange={(e) =>
-                  setForm({ ...form, size: e.target.value })
-                }
-              />
+      <section style={{ marginTop: 28 }}>
+        <h2>Your Products ({products.length})</h2>
 
-              <label htmlFor="product-condition">Condition</label>
-              <select
-                id="product-condition"
-                value={form.condition}
-                onChange={(e) =>
-                  setForm({ ...form, condition: e.target.value })
-                }
-              >
-                <option value="Brand new">Brand new</option>
-                <option value="Like new">Like new</option>
-                <option value="Very good">Very good</option>
-                <option value="Good">Good</option>
-                <option value="Fair">Fair</option>
-              </select>
+        {products.length === 0 ? (
+          <p>No products yet. Add your first thrift item above.</p>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: 16,
+            }}
+          >
+            {products.map((product) => {
+              const images =
+                product.image_urls?.length
+                  ? product.image_urls
+                  : product.image_url
+                    ? [product.image_url]
+                    : [];
 
-              <label htmlFor="product-price">Price (₱)</label>
-              <input
-                id="product-price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.price}
-                onChange={(e) =>
-                  setForm({ ...form, price: e.target.value })
-                }
-                required
-              />
-
-              <label htmlFor="product-photos">
-                Product photos (up to 20)
-              </label>
-              <input
-                id="product-photos"
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) => choosePhotos(e.target.files)}
-              />
-              <p>
-                {photos.length} of {MAX_PHOTOS} photos selected.
-                Maximum 10 MB per photo.
-              </p>
-
-              {photos.length > 0 && (
-                <div
+              return (
+                <article
+                  key={product.id}
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                    gap: '8px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 12,
+                    padding: 12,
+                    minWidth: 0,
                   }}
                 >
-                  {photos.map((photo, index) => (
-                    <div key={`${photo.name}-${index}`}>
-                      <img
-                        src={URL.createObjectURL(photo)}
-                        alt={`Selected photo ${index + 1}`}
-                        style={{
-                          width: '100%',
-                          height: '100px',
-                          objectFit: 'cover',
-                          borderRadius: '8px',
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPhotos((current) =>
-                            current.filter((_, i) => i !== index)
-                          );
-                          const input = document.getElementById(
-                            'product-photos'
-                          ) as HTMLInputElement | null;
-                          if (input) input.value = '';
-                        }}
-                      >
-                        Remove
-                      </button>
+                  {images.length > 0 ? (
+                    <img
+                      src={images[0]}
+                      alt={product.name}
+                      style={{
+                        width: '100%',
+                        height: 190,
+                        objectFit: 'cover',
+                        borderRadius: 8,
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        height: 190,
+                        display: 'grid',
+                        placeItems: 'center',
+                        background: '#f1f5f9',
+                        borderRadius: 8,
+                      }}
+                    >
+                      No photo
                     </div>
-                  ))}
-                </div>
-              )}
+                  )}
 
-              <label htmlFor="product-description">Description</label>
-              <textarea
-                id="product-description"
-                value={form.description}
-                onChange={(e) =>
-                  setForm({ ...form, description: e.target.value })
-                }
-              />
+                  <h3>{product.name}</h3>
+                  <p>₱{Number(product.price).toLocaleString('en-PH')}</p>
+                  <p>{product.category} · {product.size || 'No size'}</p>
+                  <p>{product.condition}</p>
+                  <p>{images.length} photo(s)</p>
 
-              <button type="submit" disabled={busy}>
-                {busy ? 'Uploading...' : 'Add product'}
-              </button>
-            </form>
+                  <label htmlFor={`status-${product.id}`}>Status</label>
+                  <select
+                    id={`status-${product.id}`}
+                    value={product.status}
+                    onChange={(e) =>
+                      void updateStatus(product.id, e.target.value)
+                    }
+                    style={fieldStyle}
+                  >
+                    <option value="available">Available</option>
+                    <option value="reserved">Reserved</option>
+                    <option value="sold">Sold</option>
+                  </select>
 
-            <h2>Products ({products.length})</h2>
-
-            {products.length === 0 ? (
-              <p>No products found yet.</p>
-            ) : (
-              <div className="productList">
-                {products.map((product) => {
-                  const images =
-                    product.image_urls?.length
-                      ? product.image_urls
-                      : product.image_url
-                        ? [product.image_url]
-                        : [];
-
-                  return (
-                    <article key={product.id} className="productItem">
-                      {images.map((url, index) => (
-                        <img
-                          key={`${product.id}-${index}`}
-                          src={url}
-                          alt={`${product.name} photo ${index + 1}`}
-                          width="100"
-                          style={{
-                            width: '100px',
-                            height: '100px',
-                            objectFit: 'cover',
-                            marginRight: '6px',
-                          }}
-                        />
-                      ))}
-
-                      <div>
-                        <h3>{product.name}</h3>
-                        <p>{product.category} · {product.size || 'No size'}</p>
-                        <p>₱{Number(product.price).toLocaleString('en-PH')}</p>
-                        <p>{product.condition} · {product.status}</p>
-                        {product.description && <p>{product.description}</p>}
-                        <p>{images.length} photo(s)</p>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => startEdit(product)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void deleteProduct(product)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         )}
       </section>
     </main>
   );
 }
+
+const fieldStyle = {
+  display: 'block',
+  width: '100%',
+  boxSizing: 'border-box' as const,
+  padding: 10,
+  margin: '8px 0 16px',
+  border: '1px solid #cbd5e1',
+  borderRadius: 6,
+};
