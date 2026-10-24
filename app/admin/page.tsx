@@ -12,9 +12,13 @@ type Product = {
   condition: string;
   price: number;
   image_url: string | null;
+  image_urls?: string[] | null;
   description: string | null;
   status: string;
 };
+
+const MAX_PHOTOS = 20;
+const BUCKET = 'product-photos';
 
 export default function Admin() {
   const [email, setEmail] = useState('');
@@ -23,6 +27,7 @@ export default function Admin() {
   const [products, setProducts] = useState<Product[]>([]);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [photos, setPhotos] = useState<File[]>([]);
 
   const [form, setForm] = useState({
     name: '',
@@ -30,7 +35,6 @@ export default function Admin() {
     size: '',
     condition: 'Very good',
     price: '',
-    image_url: '',
     description: '',
   });
 
@@ -41,12 +45,10 @@ export default function Admin() {
 
     supabase.auth.getSession().then(({ data, error }) => {
       if (!mounted) return;
-
       if (error) {
         setMessage(error.message);
         return;
       }
-
       setSession(data.session);
     });
 
@@ -78,16 +80,14 @@ export default function Admin() {
   };
 
   useEffect(() => {
-    if (session) {
-      void load();
-    }
+    if (session) void load();
   }, [session]);
 
   const login = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!supabase) {
-      setMessage('Supabase is not configured. Check your environment variables.');
+      setMessage('Supabase is not configured.');
       return;
     }
 
@@ -100,12 +100,48 @@ export default function Admin() {
         password,
       });
 
-      setMessage(error?.message || 'Logged in successfully.');
+      if (error) setMessage(error.message);
+      else setMessage('Logged in successfully.');
     } catch {
       setMessage('Unable to sign in. Please try again.');
     } finally {
       setBusy(false);
     }
+  };
+
+  const choosePhotos = (files: FileList | null) => {
+    if (!files) return;
+
+    const selected = Array.from(files);
+
+    if (selected.length > MAX_PHOTOS) {
+      setPhotos([]);
+      setMessage('Please select no more than 20 photos.');
+      return;
+    }
+
+    const invalid = selected.find(
+      (file) => !file.type.startsWith('image/')
+    );
+
+    if (invalid) {
+      setPhotos([]);
+      setMessage('Please select image files only.');
+      return;
+    }
+
+    const tooLarge = selected.find(
+      (file) => file.size > 10 * 1024 * 1024
+    );
+
+    if (tooLarge) {
+      setPhotos([]);
+      setMessage('Each photo must be 10 MB or smaller.');
+      return;
+    }
+
+    setPhotos(selected);
+    setMessage(`${selected.length} photo(s) selected.`);
   };
 
   const addProduct = async (e: FormEvent<HTMLFormElement>) => {
@@ -118,33 +154,71 @@ export default function Admin() {
 
     const price = Number(form.price);
 
-    if (!form.name.trim() || !form.category.trim() || !form.price.trim() ||
-        !Number.isFinite(price) || price < 0) {
-      setMessage('Please enter a product name, category, and valid price.');
+    if (
+      !form.name.trim() ||
+      !form.category.trim() ||
+      !form.price.trim() ||
+      !Number.isFinite(price) ||
+      price < 0
+    ) {
+      setMessage('Enter a product name, category, and valid price.');
+      return;
+    }
+
+    if (photos.length > MAX_PHOTOS) {
+      setMessage('You can upload a maximum of 20 photos.');
       return;
     }
 
     setBusy(true);
-    setMessage('');
+    setMessage('Uploading product photos...');
+
+    const uploadedPaths: string[] = [];
 
     try {
-      const { error } = await supabase.from('products').insert({
-        name: form.name.trim(),
-        category: form.category,
-        size: form.size.trim() || null,
-        condition: form.condition,
-        price,
-        image_url: form.image_url.trim() || null,
-        description: form.description.trim() || null,
-        status: 'available',
-      });
+      const imageUrls: string[] = [];
 
-      if (error) {
-        setMessage(error.message);
-        return;
+      for (const file of photos) {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const path = `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(`Photo upload failed: ${uploadError.message}`);
+        }
+
+        uploadedPaths.push(path);
+
+        const { data } = supabase.storage
+          .from(BUCKET)
+          .getPublicUrl(path);
+
+        imageUrls.push(data.publicUrl);
       }
 
-      setMessage('Product added successfully!');
+      const { error: insertError } = await supabase
+        .from('products')
+        .insert({
+          name: form.name.trim(),
+          category: form.category,
+          size: form.size.trim() || null,
+          condition: form.condition,
+          price,
+          image_url: imageUrls[0] || null,
+          image_urls: imageUrls,
+          description: form.description.trim() || null,
+          status: 'available',
+        });
+
+      if (insertError) throw new Error(insertError.message);
+
+      setMessage('Product and photos added successfully!');
 
       setForm({
         name: '',
@@ -152,13 +226,28 @@ export default function Admin() {
         size: '',
         condition: 'Very good',
         price: '',
-        image_url: '',
         description: '',
       });
 
+      setPhotos([]);
+
+      const fileInput = document.getElementById(
+        'product-photos'
+      ) as HTMLInputElement | null;
+
+      if (fileInput) fileInput.value = '';
+
       await load();
-    } catch {
-      setMessage('Unable to add product. Please try again.');
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Please try again.';
+
+      setMessage(reason);
+
+      // Clean up uploaded files if saving the product fails.
+      if (uploadedPaths.length > 0 && supabase) {
+        await supabase.storage.from(BUCKET).remove(uploadedPaths);
+      }
     } finally {
       setBusy(false);
     }
@@ -180,36 +269,21 @@ export default function Admin() {
   if (!supabase) {
     return (
       <main className="adminWrap">
-        <a href="/" className="brand">
-          TalkThrift
-        </a>
-
+        <a href="/" className="brand">TalkThrift</a>
         <section className="adminPanel">
           <h1>Store dashboard</h1>
-
           <p>Supabase configuration diagnostic</p>
-
           <p>
             URL detected:{' '}
-            <strong>
-              {supabaseConfigCheck.hasUrl ? 'YES' : 'NO'}
-            </strong>
+            <strong>{supabaseConfigCheck.hasUrl ? 'YES' : 'NO'}</strong>
           </p>
-
           <p>
             Publishable key detected:{' '}
             <strong>
               {supabaseConfigCheck.hasPublishableKey ? 'YES' : 'NO'}
             </strong>
           </p>
-
-          <p>
-            {supabaseConfigCheck.hasUrl &&
-            supabaseConfigCheck.hasPublishableKey
-              ? 'Both values are detected. Check the Supabase client configuration.'
-              : 'One or both values are missing from the deployed build. Check Vercel environment variables and redeploy.'}
-          </p>
-
+          <p>Check your Vercel environment variables and redeploy if missing.</p>
           <a href="/">← Back to store</a>
         </section>
       </main>
@@ -218,9 +292,7 @@ export default function Admin() {
 
   return (
     <main className="adminWrap">
-      <a href="/" className="brand">
-        TalkThrift
-      </a>
+      <a href="/" className="brand">TalkThrift</a>
 
       <section className="adminPanel">
         <h1>Store dashboard</h1>
@@ -228,10 +300,7 @@ export default function Admin() {
         {message && <p role="status">{message}</p>}
 
         {!session ? (
-          <form
-            onSubmit={login}
-            className="adminForm"
-          >
+          <form onSubmit={login} className="adminForm">
             <h2>Admin login</h2>
 
             <label htmlFor="admin-email">Email</label>
@@ -331,16 +400,59 @@ export default function Admin() {
                 required
               />
 
-              <label htmlFor="product-image">Image URL</label>
+              <label htmlFor="product-photos">
+                Product photos (up to 20)
+              </label>
               <input
-                id="product-image"
-                type="url"
-                placeholder="https://..."
-                value={form.image_url}
-                onChange={(e) =>
-                  setForm({ ...form, image_url: e.target.value })
-                }
+                id="product-photos"
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => choosePhotos(e.target.files)}
               />
+              <p>
+                {photos.length} of {MAX_PHOTOS} photos selected.
+                Maximum 10 MB per photo.
+              </p>
+
+              {photos.length > 0 && (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                    gap: '8px',
+                  }}
+                >
+                  {photos.map((photo, index) => (
+                    <div key={`${photo.name}-${index}`}>
+                      <img
+                        src={URL.createObjectURL(photo)}
+                        alt={`Selected photo ${index + 1}`}
+                        style={{
+                          width: '100%',
+                          height: '100px',
+                          objectFit: 'cover',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhotos((current) =>
+                            current.filter((_, i) => i !== index)
+                          );
+                          const input = document.getElementById(
+                            'product-photos'
+                          ) as HTMLInputElement | null;
+                          if (input) input.value = '';
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <label htmlFor="product-description">Description</label>
               <textarea
@@ -352,7 +464,7 @@ export default function Admin() {
               />
 
               <button type="submit" disabled={busy}>
-                {busy ? 'Please wait...' : 'Add product'}
+                {busy ? 'Uploading...' : 'Add product'}
               </button>
             </form>
 
@@ -362,25 +474,42 @@ export default function Admin() {
               <p>No products found yet.</p>
             ) : (
               <div className="productList">
-                {products.map((product) => (
-                  <article key={product.id} className="productItem">
-                    {product.image_url && (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        width="100"
-                      />
-                    )}
+                {products.map((product) => {
+                  const images =
+                    product.image_urls?.length
+                      ? product.image_urls
+                      : product.image_url
+                        ? [product.image_url]
+                        : [];
 
-                    <div>
-                      <h3>{product.name}</h3>
-                      <p>{product.category} · {product.size || 'No size'}</p>
-                      <p>₱{Number(product.price).toLocaleString('en-PH')}</p>
-                      <p>{product.condition} · {product.status}</p>
-                      {product.description && <p>{product.description}</p>}
-                    </div>
-                  </article>
-                ))}
+                  return (
+                    <article key={product.id} className="productItem">
+                      {images.map((url, index) => (
+                        <img
+                          key={`${product.id}-${index}`}
+                          src={url}
+                          alt={`${product.name} photo ${index + 1}`}
+                          width="100"
+                          style={{
+                            width: '100px',
+                            height: '100px',
+                            objectFit: 'cover',
+                            marginRight: '6px',
+                          }}
+                        />
+                      ))}
+
+                      <div>
+                        <h3>{product.name}</h3>
+                        <p>{product.category} · {product.size || 'No size'}</p>
+                        <p>₱{Number(product.price).toLocaleString('en-PH')}</p>
+                        <p>{product.condition} · {product.status}</p>
+                        {product.description && <p>{product.description}</p>}
+                        <p>{images.length} photo(s)</p>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </>
