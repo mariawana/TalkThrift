@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 const SELLER_FACEBOOK = 'https://www.facebook.com/kilme.rudy';
-const SELLER_INSTAGRAM = 'https://www.instagram.com/talkthriftwhsorudy/';
+const SELLER_INSTAGRAM =
+  'https://www.instagram.com/talkthriftwhsorudy/';
 
 type Product = {
   id: string;
@@ -31,6 +32,7 @@ export default function ProductDetails() {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [showOffer, setShowOffer] = useState(false);
   const [offerAmount, setOfferAmount] = useState('');
+  const [sendingOffer, setSendingOffer] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,18 +52,13 @@ export default function ProductDetails() {
         .maybeSingle();
 
       if (!cancelled) {
-        if (!error && data) {
-          setProduct(data as Product);
-        } else {
-          setProduct(null);
-        }
-
+        setProduct(!error && data ? (data as Product) : null);
         setLoading(false);
       }
     }
 
     if (params.id) {
-      loadProduct();
+      void loadProduct();
     } else {
       setLoading(false);
     }
@@ -118,8 +115,6 @@ export default function ProductDetails() {
       return;
     }
 
-    // Keeps compatibility with the existing checkout page.
-    // The customer buys only this selected product.
     localStorage.setItem(
       'rewear-cart',
       JSON.stringify([product])
@@ -148,14 +143,26 @@ export default function ProductDetails() {
   }
 
   async function sendOffer() {
-    if (!product) return;
+    if (!product || !supabase || sendingOffer) return;
+
+    setNotice('');
+
+    if (product.status !== 'available') {
+      setNotice('This item is no longer available.');
+      return;
+    }
 
     const amount = Number(offerAmount);
 
-    if (!offerAmount.trim() ||
-        !Number.isFinite(amount) ||
-        amount <= 0) {
-      setNotice('Please enter a valid offer amount.');
+    if (
+      !offerAmount.trim() ||
+      !Number.isFinite(amount) ||
+      amount <= 0 ||
+      !Number.isInteger(amount * 100)
+    ) {
+      setNotice(
+        'Please enter a valid offer amount with up to two decimal places.'
+      );
       return;
     }
 
@@ -166,39 +173,122 @@ export default function ProductDetails() {
       return;
     }
 
-    const message =
-      `Hello! I would like to make an offer for this TalkThrift item.\n\n` +
-      `Product: ${product.name}\n` +
-      `Listed price: ${price(product.price)}\n` +
-      `My offer: ${price(amount)}\n` +
-      `Product link: ${window.location.href}\n\n` +
-      `Please let me know if my offer is acceptable. Thank you!`;
+    setSendingOffer(true);
 
     try {
-      await navigator.clipboard.writeText(message);
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
 
-      window.open(
-        SELLER_FACEBOOK,
-        '_blank',
-        'noopener,noreferrer'
-      );
+      if (authError) {
+        setNotice(
+          'Unable to verify your account. Please try again.'
+        );
+        return;
+      }
 
+      if (!user) {
+        setNotice(
+          'Please log in or create an account before submitting an offer.'
+        );
+
+        router.push(
+          `/account?next=${encodeURIComponent(
+            `/product/${product.id}`
+          )}`
+        );
+        return;
+      }
+
+      const { data: latestProduct, error: productError } =
+        await supabase
+          .from('products')
+          .select('id, price, status')
+          .eq('id', product.id)
+          .maybeSingle();
+
+      if (productError || !latestProduct) {
+        setNotice(
+          'Unable to verify this product. Please try again.'
+        );
+        return;
+      }
+
+      if (latestProduct.status !== 'available') {
+        setNotice(
+          'Sorry, this product is no longer available.'
+        );
+        return;
+      }
+
+      if (amount >= Number(latestProduct.price)) {
+        setNotice(
+          'The product price has changed. Please enter an offer below the current price.'
+        );
+        setProduct((current) =>
+          current
+            ? {
+                ...current,
+                price: Number(latestProduct.price),
+                status: latestProduct.status,
+              }
+            : current
+        );
+        return;
+      }
+
+      const { data: existingOffers, error: checkError } =
+        await supabase
+          .from('offers')
+          .select('id')
+          .eq('product_id', product.id)
+          .eq('customer_id', user.id)
+          .eq('status', 'pending')
+          .limit(1);
+
+      if (checkError) {
+        setNotice(
+          `Unable to check existing offers: ${checkError.message}`
+        );
+        return;
+      }
+
+      if (existingOffers && existingOffers.length > 0) {
+        setNotice(
+          'You already have a pending offer for this product. Please wait for the seller to respond.'
+        );
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from('offers')
+        .insert({
+          product_id: product.id,
+          customer_id: user.id,
+          offer_amount: amount,
+          status: 'pending',
+        });
+
+      if (insertError) {
+        setNotice(
+          `Unable to submit your offer: ${insertError.message}`
+        );
+        return;
+      }
+
+      setShowOffer(false);
+      setOfferAmount('');
       setNotice(
-        'Offer message copied! Open Message on the seller Facebook profile, then paste and send your offer.'
+        'Your offer was submitted successfully! The seller can now review it in the Seller Dashboard.'
       );
     } catch {
-      window.open(
-        SELLER_FACEBOOK,
-        '_blank',
-        'noopener,noreferrer'
-      );
-
       setNotice(
-        `Please message KILME RUDY about your ${price(amount)} offer for ${product.name}.`
+        'Something went wrong while submitting your offer. Please try again.'
       );
+    } finally {
+      setSendingOffer(false);
     }
-
-    setShowOffer(false);
   }
 
   async function shareProduct() {
@@ -228,7 +318,7 @@ export default function ProductDetails() {
   if (!product) {
     return (
       <main className="productDetails">
-        <h1>We couldn't find this piece.</h1>
+        <h1>We couldn&apos;t find this piece.</h1>
         <a href="/">← Back to TalkThrift</a>
       </main>
     );
@@ -314,7 +404,11 @@ export default function ProductDetails() {
             <strong>Availability:</strong>{' '}
             {product.status === 'available'
               ? 'Available'
-              : 'Unavailable'}
+              : product.status === 'reserved'
+                ? 'Reserved'
+                : product.status === 'sold'
+                  ? 'Sold'
+                  : 'Unavailable'}
           </p>
 
           <div className="detailDescription">
@@ -373,11 +467,12 @@ export default function ProductDetails() {
                 <input
                   id="offerAmount"
                   type="number"
-                  min="1"
+                  min="0.01"
                   step="0.01"
                   max={product.price}
                   value={offerAmount}
                   placeholder="Enter your offer"
+                  disabled={sendingOffer}
                   onChange={(event) =>
                     setOfferAmount(event.target.value)
                   }
@@ -388,15 +483,20 @@ export default function ProductDetails() {
                     type="button"
                     className="primary"
                     onClick={sendOffer}
+                    disabled={sendingOffer}
                   >
-                    Copy Offer & Open Facebook
+                    {sendingOffer
+                      ? 'Submitting...'
+                      : 'Submit Offer'}
                   </button>
 
                   <button
                     type="button"
                     className="secondaryAction"
+                    disabled={sendingOffer}
                     onClick={() => {
                       setShowOffer(false);
+                      setOfferAmount('');
                       setNotice('');
                     }}
                   >
