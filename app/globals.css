@@ -938,3 +938,339 @@ footer small {
   }
 }
 
+/* ========================================
+   TALKTHRIFT - UPDATED STOREFRONT
+   Add below your existing CSS
+======================================== */
+
+/* Main layout */
+.storeLayout {
+  display: grid;
+  grid-template-columns: 245px minmax(0, 1fr);
+  min-height: 100vh;
+  background: #f2f4f9;
+}
+
+.storeMain {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Left sidebar */
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 32px 23px;
+  background: #ffffff;
+  border-right: 1px solid #dfe3ee;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.sidebarBrand {
+  font-size: 24px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sidebarCaption {
+  font-size: 10px;
+  letter-spacing: 2px;
+  margin-top: 8px;
+  color: #777e91;
+}
+
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  margin-top: 38px;
+}
+
+.sidebarNav a,
+.sidebarNav button {
+  display: block;
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #263149;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.sidebarNav a:hover,
+.sidebarNav button:hover {
+  background: #edf1ff;
+  color: #243f9b;
+}
+
+.sidebarLabel {
+  margin: 20px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #8990a1;
+}
+
+.sidebarBottom {
+  margin-top: auto;
+  padding-top: 32px;
+  font-size: 12px;
+  color: #7a8191;
+}
+
+.sidebarBottom span {
+  display: block;
+  margin-top: 12px;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+/* Continuous scrolling announcement */
+.announcement {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 11px 0;
+  background: #243f9b;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.announcementTrack {
+  display: flex;
+  width: max-content;
+  animation: talkthriftMarquee 35s linear infinite;
+}
+
+.announcementTrack span {
+  flex-shrink: 0;
+  padding-right: 32px;
+  white-space: nowrap;
+}
+
+@keyframes talkthriftMarquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Simple top header */
+.storeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 20px 5%;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e8ef;
+  color: #243f9b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.storeHeader a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Clean hero without decorative artwork */
+.storeHero {
+  display: block;
+  min-height: auto;
+  padding: 80px 7%;
+  background: #f2f4f9;
+}
+
+.storeHero .heroCopy {
+  max-width: 720px;
+  padding: 0;
+}
+
+.storeHero h1 {
+  max-width: 680px;
+}
+
+.viewPiece {
+  display: inline-flex;
+  align-items: center;
+  gap: 24px;
+  margin-top: 25px;
+  padding: 15px 22px;
+  background: #243f9b;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.viewPiece:hover {
+  background: #182d75;
+}
+
+/* Product cards */
+.storeMain .product {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.storeMain .productView {
+  display: block;
+  margin-top: 14px;
+  padding: 12px;
+  border-top: 1px solid #e5e8ef;
+  color: #243f9b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* Empty products */
+.storeMain .emptyState {
+  padding: 50px 20px;
+  text-align: center;
+  color: #667085;
+}
+
+/* Footer */
+.storeFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 25px;
+  padding: 45px 5%;
+  background: #ffffff;
+  border-top: 1px solid #e5e8ef;
+}
+
+.storeFooter .brand {
+  display: inline-block;
+  margin-bottom: 12px;
+}
+
+.socialText p {
+  margin-bottom: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.storeFooter .copyright {
+  font-size: 11px;
+  color: #7a8191;
+}
+
+/* Tablet */
+@media (max-width: 900px) {
+  .storeLayout {
+    grid-template-columns: 195px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    padding: 24px 14px;
+  }
+
+  .sidebarBrand {
+    font-size: 20px;
+  }
+
+  .storeHero {
+    padding: 65px 6%;
+  }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .storeLayout {
+    display: block;
+  }
+
+  .sidebar {
+    position: relative;
+    height: auto;
+    max-height: none;
+    padding: 18px 20px;
+    border-right: 0;
+    border-bottom: 1px solid #dfe3ee;
+  }
+
+  .sidebarBrand {
+    font-size: 22px;
+  }
+
+  .sidebarCaption {
+    margin-top: 5px;
+  }
+
+  .sidebarNav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 18px;
+  }
+
+  .sidebarNav a,
+  .sidebarNav button {
+    width: auto;
+    padding: 9px 11px;
+    font-size: 12px;
+    background: #f2f4f9;
+  }
+
+  .sidebarLabel {
+    flex-basis: 100%;
+    margin: 12px 0 2px;
+  }
+
+  .sidebarBottom {
+    display: none;
+  }
+
+  .storeHeader {
+    padding: 15px 5%;
+    font-size: 9px;
+  }
+
+  .storeHero {
+    padding: 55px 6%;
+  }
+
+  .storeHero h1 {
+    font-size: clamp(35px, 10vw, 52px);
+  }
+
+  .storeFooter {
+    flex-direction: column;
+    padding: 35px 6%;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .announcementTrack {
+    animation: none;
+  }
+}
+
