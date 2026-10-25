@@ -1274,3 +1274,73 @@ footer small {
   }
 }
 
+
+/* TALKTHRIFT - MAKE AN OFFER FORM */
+
+.offerPanel {
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dfe3ee;
+  border-radius: 12px;
+}
+
+.offerPanel h2 {
+  margin: 0 0 12px;
+  color: #243f9b;
+  font-size: 22px;
+}
+
+.offerPanel p {
+  margin-bottom: 18px;
+  color: #555e72;
+  font-size: 14px;
+}
+
+.offerPanel label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.offerPanel input {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid #cbd2e1;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #263149;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.offerPanel input:focus {
+  outline: 2px solid #243f9b;
+  outline-offset: 2px;
+}
+
+.offerButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.offerButtons button {
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .offerPanel {
+    padding: 18px;
+  }
+
+  .offerButtons {
+    flex-direction: column;
+  }
+
+  .offerButtons button {
+    width: 100%;
+  }
+}
