@@ -16,6 +16,24 @@ type Product = {
   status: string;
 };
 
+function MessageIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
@@ -28,7 +46,7 @@ export default function Home() {
 
     async function loadProducts() {
       if (!supabase) {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
         return;
       }
 
@@ -46,7 +64,7 @@ export default function Home() {
       }
     }
 
-    loadProducts();
+    void loadProducts();
 
     return () => {
       cancelled = true;
@@ -57,7 +75,9 @@ export default function Home() {
     () => [
       'All',
       ...Array.from(
-        new Set(products.map((p) => p.category).filter(Boolean))
+        new Set(
+          products.map((p) => p.category).filter(Boolean)
+        )
       ),
     ],
     [products]
@@ -101,15 +121,40 @@ export default function Home() {
           TALK<span>THRIFT</span>
         </Link>
 
-        <button
-          type="button"
-          className="ttMenuButton"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Open menu"
-          aria-expanded={menuOpen}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
         >
-          ☰ <span>MENU</span>
-        </button>
+          <Link
+            href="/messages"
+            aria-label="Open Messages"
+            title="Messages"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 40,
+              height: 40,
+              color: 'inherit',
+              textDecoration: 'none',
+            }}
+          >
+            <MessageIcon size={23} />
+          </Link>
+
+          <button
+            type="button"
+            className="ttMenuButton"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Open menu"
+            aria-expanded={menuOpen}
+          >
+            ☰ <span>MENU</span>
+          </button>
+        </div>
       </header>
 
       {menuOpen && (
@@ -121,7 +166,11 @@ export default function Home() {
         />
       )}
 
-      <aside className={`ttSidebar ${menuOpen ? 'ttSidebarOpen' : ''}`}>
+      <aside
+        className={`ttSidebar ${
+          menuOpen ? 'ttSidebarOpen' : ''
+        }`}
+      >
         <div className="ttSidebarTop">
           <Link
             href="/"
@@ -144,7 +193,10 @@ export default function Home() {
         <p className="ttTagline">PRELOVED. RELOVED.</p>
 
         <nav className="ttSidebarNav">
-          <a href="#shop" onClick={() => selectCategory('All')}>
+          <a
+            href="#shop"
+            onClick={() => selectCategory('All')}
+          >
             Shop All
           </a>
 
@@ -170,17 +222,49 @@ export default function Home() {
           </button>
 
           <p className="ttNavLabel">YOUR ACCOUNT</p>
-          <Link href="/account">Account / Sign In</Link>
-          <Link href="/orders">My Orders</Link>
+
+          <Link
+            href="/account"
+            onClick={() => setMenuOpen(false)}
+          >
+            Account / Sign In
+          </Link>
+
+          <Link
+            href="/orders"
+            onClick={() => setMenuOpen(false)}
+          >
+            My Orders
+          </Link>
+
+          <Link
+            href="/messages"
+            onClick={() => setMenuOpen(false)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+            }}
+          >
+            <MessageIcon size={19} />
+            Messages
+          </Link>
 
           <p className="ttNavLabel">MORE</p>
+
           <a
             href="#footer"
             onClick={() => setMenuOpen(false)}
           >
             Contact
           </a>
-          <Link href="/admin">Seller Dashboard</Link>
+
+          <Link
+            href="/admin"
+            onClick={() => setMenuOpen(false)}
+          >
+            Seller Dashboard
+          </Link>
         </nav>
 
         <div className="ttSidebarFooter">
@@ -192,7 +276,9 @@ export default function Home() {
         <div className="ttMarquee">
           <div className="ttMarqueeTrack">
             <span>{marqueeText}</span>
-            <span aria-hidden="true">{marqueeText}</span>
+            <span aria-hidden="true">
+              {marqueeText}
+            </span>
           </div>
         </div>
 
@@ -208,21 +294,46 @@ export default function Home() {
           </h1>
 
           <p className="ttHeroDescription">
-            Discover handpicked preloved pieces made for your
-            personal style. Great finds, better stories.
+            Discover handpicked preloved pieces made
+            for your personal style. Great finds,
+            better stories.
           </p>
 
           <a href="#shop" className="ttPrimaryButton">
             EXPLORE COLLECTION ↗
           </a>
+
+          <div style={{ marginTop: 24 }}>
+            <Link
+              href="/messages"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 10,
+                color: 'inherit',
+                fontSize: 13,
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                textDecoration: 'underline',
+                textUnderlineOffset: 5,
+              }}
+            >
+              <MessageIcon size={19} />
+              YOUR MESSAGES ↗
+            </Link>
+          </div>
         </section>
 
         <section className="ttShop" id="shop">
           <div className="ttSectionHeading">
             <div>
-              <p className="ttEyebrow">THE COLLECTION</p>
+              <p className="ttEyebrow">
+                THE COLLECTION
+              </p>
+
               <h2>Shop the latest finds.</h2>
             </div>
+
             <span>{filtered.length} ITEMS</span>
           </div>
 
@@ -231,7 +342,9 @@ export default function Home() {
             type="search"
             placeholder="Search for your next find..."
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) =>
+              setQuery(event.target.value)
+            }
           />
 
           <div className="ttFilters">
@@ -239,7 +352,9 @@ export default function Home() {
               <button
                 type="button"
                 key={item}
-                className={category === item ? 'selected' : ''}
+                className={
+                  category === item ? 'selected' : ''
+                }
                 onClick={() => setCategory(item)}
               >
                 {item}
@@ -248,11 +363,15 @@ export default function Home() {
           </div>
 
           {loading ? (
-            <p className="ttEmpty">Loading products...</p>
+            <p className="ttEmpty">
+              Loading products...
+            </p>
           ) : filtered.length === 0 ? (
             <div className="ttEmpty">
               <h3>No items found.</h3>
-              <p>New handpicked finds are coming soon.</p>
+              <p>
+                New handpicked finds are coming soon.
+              </p>
             </div>
           ) : (
             <div className="ttProductGrid">
@@ -278,7 +397,9 @@ export default function Home() {
                     <p className="ttProductCategory">
                       {product.category}
                     </p>
+
                     <h3>{product.name}</h3>
+
                     <p className="ttProductMeta">
                       {product.size
                         ? `Size ${product.size}`
@@ -286,7 +407,11 @@ export default function Home() {
                       {' · '}
                       {product.condition}
                     </p>
-                    <strong>{price(Number(product.price))}</strong>
+
+                    <strong>
+                      {price(Number(product.price))}
+                    </strong>
+
                     <span className="ttViewProduct">
                       VIEW DETAILS ↗
                     </span>
@@ -297,7 +422,10 @@ export default function Home() {
           )}
         </section>
 
-        <footer className="ttFooter" id="footer">
+        <footer
+          className="ttFooter"
+          id="footer"
+        >
           <div>
             <h2>TALKTHRIFT</h2>
             <p>Your next find. Already loved.</p>
