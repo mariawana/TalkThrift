@@ -13,7 +13,6 @@ type Product = {
   condition: string;
   price: number;
   image_url: string | null;
-  description: string | null;
   status: string;
 };
 
@@ -21,19 +20,19 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
-  const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     async function loadProducts() {
-      const { data, error } = await supabase!
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('status', 'available')
@@ -54,40 +53,22 @@ export default function Home() {
     };
   }, []);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        setMenuOpen(false);
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, []);
-
   const categories = useMemo(
     () => [
       'All',
       ...Array.from(
-        new Set(
-          products
-            .map((product) => product.category)
-            .filter(Boolean)
-        )
+        new Set(products.map((p) => p.category).filter(Boolean))
       ),
     ],
     [products]
   );
 
-  const filteredProducts = products.filter((product) => {
+  const filtered = products.filter((p) => {
     const matchesCategory =
-      category === 'All' || product.category === category;
+      category === 'All' || p.category === category;
 
     const searchable =
-      `${product.name} ${product.category} ${product.size ?? ''} ${product.condition}`.toLowerCase();
+      `${p.name} ${p.category} ${p.size ?? ''} ${p.condition}`.toLowerCase();
 
     return (
       matchesCategory &&
@@ -95,237 +76,193 @@ export default function Home() {
     );
   });
 
-  const formatPrice = (price: number) =>
+  const price = (value: number) =>
     new Intl.NumberFormat('en-PH', {
       style: 'currency',
       currency: 'PHP',
-      maximumFractionDigits: 2,
-    }).format(price);
+    }).format(value);
 
-  function closeMenu() {
+  function selectCategory(value: string) {
+    setCategory(value);
     setMenuOpen(false);
-  }
-
-  function selectCategory(item: string) {
-    setCategory(item);
-    closeMenu();
 
     document
       .getElementById('shop')
       ?.scrollIntoView({ behavior: 'smooth' });
   }
 
+  const marqueeText =
+    'HANDPICKED THRIFT FINDS · ONE-OF-A-KIND PIECES · MADE FOR YOU · KILME RUDY ON FACEBOOK · talkthrifwhsorudy on IG · ';
+
   return (
-    <main className="storeLayout" id="top">
-      <button
-        type="button"
-        className="mobileMenuButton"
-        onClick={() => setMenuOpen(true)}
-        aria-label="Open navigation menu"
-        aria-expanded={menuOpen}
-        aria-controls="store-sidebar"
-      >
-        ☰ <span>MENU</span>
-      </button>
+    <main className="ttLayout">
+      <header className="ttMobileHeader">
+        <Link href="/" className="ttLogo">
+          TALK<span>THRIFT</span>
+        </Link>
+
+        <button
+          type="button"
+          className="ttMenuButton"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Open menu"
+          aria-expanded={menuOpen}
+        >
+          ☰ <span>MENU</span>
+        </button>
+      </header>
 
       {menuOpen && (
         <button
           type="button"
-          className="sidebarOverlay"
-          onClick={closeMenu}
-          aria-label="Close navigation menu"
+          className="ttOverlay"
+          onClick={() => setMenuOpen(false)}
+          aria-label="Close menu"
         />
       )}
 
-      <aside
-        id="store-sidebar"
-        className={`sidebar ${menuOpen ? 'sidebarOpen' : ''}`}
-      >
-        <button
-          type="button"
-          className="sidebarClose"
-          onClick={closeMenu}
-          aria-label="Close menu"
-        >
-          ✕
-        </button>
+      <aside className={`ttSidebar ${menuOpen ? 'ttSidebarOpen' : ''}`}>
+        <div className="ttSidebarTop">
+          <Link
+            href="/"
+            className="ttLogo"
+            onClick={() => setMenuOpen(false)}
+          >
+            TALK<span>THRIFT</span>
+          </Link>
 
-        <Link
-          href="/"
-          className="brand sidebarBrand"
-          onClick={closeMenu}
-        >
-          TALK<span>THRIFT</span>
-        </Link>
+          <button
+            type="button"
+            className="ttClose"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            ×
+          </button>
+        </div>
 
-        <p className="sidebarCaption">
-          PRELOVED. RELOVED.
-        </p>
+        <p className="ttTagline">PRELOVED. RELOVED.</p>
 
-        <nav className="sidebarNav">
-          <a href="#shop" onClick={closeMenu}>
+        <nav className="ttSidebarNav">
+          <a href="#shop" onClick={() => selectCategory('All')}>
             Shop All
           </a>
 
-          <p className="sidebarLabel">CATEGORIES</p>
+          <p className="ttNavLabel">CATEGORIES</p>
 
           {categories
             .filter((item) => item !== 'All')
             .map((item) => (
               <button
-                type="button"
                 key={item}
+                type="button"
                 onClick={() => selectCategory(item)}
               >
                 {item}
               </button>
             ))}
 
-          <a
-            href="#shop"
-            onClick={() => {
-              setCategory('All');
-              closeMenu();
-            }}
+          <button
+            type="button"
+            onClick={() => selectCategory('All')}
           >
             All Categories
-          </a>
+          </button>
 
-          <p className="sidebarLabel">
-            YOUR ACCOUNT
-          </p>
+          <p className="ttNavLabel">YOUR ACCOUNT</p>
+          <Link href="/account">Account / Sign In</Link>
+          <Link href="/orders">My Orders</Link>
 
-          <Link href="/account" onClick={closeMenu}>
-            Account / Sign In
-          </Link>
-
-          <Link href="/orders" onClick={closeMenu}>
-            My Orders
-          </Link>
-
-          <p className="sidebarLabel">MORE</p>
-
-          <a href="#footer" onClick={closeMenu}>
+          <p className="ttNavLabel">MORE</p>
+          <a
+            href="#footer"
+            onClick={() => setMenuOpen(false)}
+          >
             Contact
           </a>
-
-          <Link href="/admin" onClick={closeMenu}>
-            Seller Dashboard
-          </Link>
+          <Link href="/admin">Seller Dashboard</Link>
         </nav>
 
-        <div className="sidebarBottom">
-          <p>Good clothes deserve another life.</p>
-          <span>© TALKTHRIFT</span>
+        <div className="ttSidebarFooter">
+          Good clothes deserve another life.
         </div>
       </aside>
 
-      <div className="storeMain">
-        <div className="announcement">
-          <div className="announcementTrack">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <span key={index}>
-                HANDPICKED THRIFT FINDS ·
-                ONE-OF-A-KIND PIECES ·
-                MADE FOR YOU ·
-                KILME RUDY ON FACEBOOK ·
-                talkthrifwhsorudy on IG ·
-              </span>
-            ))}
+      <div className="ttContent">
+        <div className="ttMarquee">
+          <div className="ttMarqueeTrack">
+            <span>{marqueeText}</span>
+            <span aria-hidden="true">{marqueeText}</span>
           </div>
         </div>
 
-        <header className="storeHeader">
-          <span>CURATED PRELOVED FINDS</span>
-          <a href="#shop">
-            EXPLORE COLLECTION ↓
+        <section className="ttHero">
+          <p className="ttEyebrow">
+            CURATED PRELOVED FINDS
+          </p>
+
+          <h1>
+            Your next find.
+            <br />
+            <em>Already loved.</em>
+          </h1>
+
+          <p className="ttHeroDescription">
+            Discover handpicked preloved pieces made for your
+            personal style. Great finds, better stories.
+          </p>
+
+          <a href="#shop" className="ttPrimaryButton">
+            EXPLORE COLLECTION ↗
           </a>
-        </header>
-
-        <section className="hero storeHero">
-          <div className="heroCopy">
-            <p className="eyebrow">
-              YOUR NEXT FAVORITE FIND
-            </p>
-
-            <h1>
-              Your next find. Already loved.
-            </h1>
-
-            <p>
-              Preloved pieces, handpicked with care.
-              Find something that fits your style
-              and give it another story.
-            </p>
-
-            <a href="#shop" className="viewPiece">
-              SHOP ALL FINDS <span>↗</span>
-            </a>
-          </div>
         </section>
 
-        <section className="shopSection" id="shop">
-          <div className="sectionHeading">
+        <section className="ttShop" id="shop">
+          <div className="ttSectionHeading">
             <div>
-              <p className="eyebrow">
-                THE COLLECTION
-              </p>
-              <h2>Find your next favorite.</h2>
+              <p className="ttEyebrow">THE COLLECTION</p>
+              <h2>Shop the latest finds.</h2>
             </div>
-
-            <span>
-              {filteredProducts.length} ITEMS
-            </span>
+            <span>{filtered.length} ITEMS</span>
           </div>
 
-          <div className="tools">
-            <input
-              type="search"
-              placeholder="Search clothes, size, category..."
-              value={query}
-              onChange={(event) =>
-                setQuery(event.target.value)
-              }
-              aria-label="Search products"
-            />
+          <input
+            className="ttSearch"
+            type="search"
+            placeholder="Search for your next find..."
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
 
-            <div className="filters">
-              {categories.map((item) => (
-                <button
-                  type="button"
-                  key={item}
-                  className={
-                    category === item ? 'active' : ''
-                  }
-                  onClick={() => setCategory(item)}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
+          <div className="ttFilters">
+            {categories.map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={category === item ? 'selected' : ''}
+                onClick={() => setCategory(item)}
+              >
+                {item}
+              </button>
+            ))}
           </div>
 
           {loading ? (
-            <p className="emptyState">
-              Loading handpicked finds...
-            </p>
-          ) : filteredProducts.length === 0 ? (
-            <div className="emptyState">
-              <h3>No items available yet.</h3>
-              <p>
-                Check back soon for new finds,
-                or visit us again later.
-              </p>
+            <p className="ttEmpty">Loading products...</p>
+          ) : filtered.length === 0 ? (
+            <div className="ttEmpty">
+              <h3>No items found.</h3>
+              <p>New handpicked finds are coming soon.</p>
             </div>
           ) : (
-            <div className="productGrid">
-              {filteredProducts.map((product) => (
+            <div className="ttProductGrid">
+              {filtered.map((product) => (
                 <Link
-                  href={`/product/${product.id}`}
-                  className="product"
                   key={product.id}
+                  href={`/product/${product.id}`}
+                  className="ttProduct"
                 >
-                  <div className="productImage">
+                  <div className="ttProductImage">
                     {product.image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -333,60 +270,48 @@ export default function Home() {
                         alt={product.name}
                       />
                     ) : (
-                      <div className="noImage">
-                        TALKTHRIFT
-                      </div>
+                      <span>TALKTHRIFT</span>
                     )}
                   </div>
 
-                  <div className="productInfo">
-                    <div>
-                      <p className="productCategory">
-                        {product.category}
-                      </p>
-
-                      <h3>{product.name}</h3>
-
-                      <p className="productMeta">
-                        {product.size
-                          ? `Size ${product.size}`
-                          : 'Size not listed'}
-                        {' · '}
-                        {product.condition}
-                      </p>
-                    </div>
-
-                    <strong>
-                      {formatPrice(Number(product.price))}
-                    </strong>
+                  <div className="ttProductInfo">
+                    <p className="ttProductCategory">
+                      {product.category}
+                    </p>
+                    <h3>{product.name}</h3>
+                    <p className="ttProductMeta">
+                      {product.size
+                        ? `Size ${product.size}`
+                        : 'Size not listed'}
+                      {' · '}
+                      {product.condition}
+                    </p>
+                    <strong>{price(Number(product.price))}</strong>
+                    <span className="ttViewProduct">
+                      VIEW DETAILS ↗
+                    </span>
                   </div>
-
-                  <span className="productView">
-                    VIEW ITEM ↗
-                  </span>
                 </Link>
               ))}
             </div>
           )}
         </section>
 
-        <footer id="footer" className="storeFooter">
+        <footer className="ttFooter" id="footer">
           <div>
-            <Link href="/" className="brand">
-              TALK<span>THRIFT</span>
-            </Link>
-
+            <h2>TALKTHRIFT</h2>
             <p>Your next find. Already loved.</p>
           </div>
 
-          <div className="socialText">
+          <div>
             <p>KILME RUDY ON FACEBOOK</p>
             <p>talkthrifwhsorudy on IG</p>
           </div>
 
-          <p className="copyright">
-            © {new Date().getFullYear()} TALKTHRIFT
-          </p>
+          <small>
+            © {new Date().getFullYear()} TalkThrift.
+            All rights reserved.
+          </small>
         </footer>
       </div>
     </main>
