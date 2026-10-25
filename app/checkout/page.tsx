@@ -1,10 +1,11 @@
+
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-type CartProduct = {
+type CheckoutProduct = {
   id: string;
   name: string;
   price: number;
@@ -20,7 +21,7 @@ export default function CheckoutPage() {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
-  const [cart, setCart] = useState<CartProduct[]>([]);
+  const [product, setProduct] = useState<CheckoutProduct | null>(null);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
@@ -35,7 +36,7 @@ export default function CheckoutPage() {
     const client = supabase;
     let active = true;
 
-    const init = async () => {
+    async function init() {
       try {
         const {
           data: { session },
@@ -52,7 +53,6 @@ export default function CheckoutPage() {
 
         if (!session) {
           router.replace('/account?next=checkout');
-          setAuthChecked(true);
           return;
         }
 
@@ -65,19 +65,27 @@ export default function CheckoutPage() {
         setPhone(meta.phone || '');
         setAddress(meta.delivery_address || '');
 
+        // Compatibility with the existing Buy Now button.
         const raw = localStorage.getItem('rewear-cart');
 
         if (raw) {
           try {
             const parsed: unknown = JSON.parse(raw);
 
-            if (Array.isArray(parsed)) {
-              setCart(parsed as CartProduct[]);
-            } else {
-              setCart([]);
+            if (Array.isArray(parsed) && parsed.length === 1) {
+              const item = parsed[0];
+
+              if (
+                item &&
+                typeof item.id === 'string' &&
+                typeof item.name === 'string' &&
+                Number.isFinite(Number(item.price))
+              ) {
+                setProduct(item as CheckoutProduct);
+              }
             }
           } catch {
-            setCart([]);
+            setMessage('Unable to load your selected item.');
           }
         }
 
@@ -88,7 +96,7 @@ export default function CheckoutPage() {
           setAuthChecked(true);
         }
       }
-    };
+    }
 
     void init();
 
@@ -97,71 +105,55 @@ export default function CheckoutPage() {
     };
   }, [router]);
 
-  const total = cart.reduce(
-    (sum, product) => sum + Number(product.price),
-    0,
-  );
+  const formatPrice = (amount: number) =>
+    `₱${Number(amount).toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
 
-  const submit = async (e: FormEvent<HTMLFormElement>) => {
+  async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!supabase || !userId || !cart.length || busy) {
-      if (!cart.length) {
-        setMessage('Your bag is empty. Please add an item first.');
-      }
+    if (!supabase || !userId || !product || busy) return;
+
+    if (!name.trim() || !phone.trim() || !address.trim()) {
+      setMessage('Please complete all your delivery information.');
       return;
     }
-
-    const client = supabase;
 
     setBusy(true);
     setMessage('');
 
     try {
-      // Verify that every cart item still exists and is available.
-      const ids = [...new Set(cart.map((product) => product.id))];
+      const client = supabase;
 
+      // Verify product availability and price from Supabase.
       const {
-        data: available,
+        data: current,
         error: checkError,
       } = await client
         .from('products')
         .select('id,name,price,size,status')
-        .in('id', ids)
-        .eq('status', 'available');
+        .eq('id', product.id)
+        .maybeSingle();
 
-      if (
-        checkError ||
-        !available ||
-        available.length !== ids.length
-      ) {
+      if (checkError) {
+        throw new Error(checkError.message);
+      }
+
+      if (!current || current.status !== 'available') {
         setMessage(
-          'One or more items are no longer available. Please return to the store and refresh your bag.',
+          'Sorry, this item is no longer available. Please choose another find.'
         );
         return;
       }
 
-      const verified = cart.map((item) => {
-        const current = available.find(
-          (product) => product.id === item.id,
-        );
-
-        if (!current) {
-          throw new Error('An item is no longer available.');
-        }
-
-        return {
-          id: current.id,
-          name: current.name,
-          price: Number(current.price),
-          size: current.size,
-        };
-      });
-
-      const verifiedTotal = verified.reduce(
-        (sum, product) => sum + product.price,
-        0,
-      );
+      const verifiedItem = {
+        id: current.id,
+        name: current.name,
+        price: Number(current.price),
+        size: current.size,
+      };
 
       const {
         data,
@@ -173,8 +165,8 @@ export default function CheckoutPage() {
           customer_name: name.trim(),
           contact_number: phone.trim(),
           delivery_address: address.trim(),
-          items: verified,
-          total: verifiedTotal,
+          items: [verifiedItem],
+          total: verifiedItem.price,
           status: 'pending',
         })
         .select('id')
@@ -186,17 +178,18 @@ export default function CheckoutPage() {
       }
 
       localStorage.removeItem('rewear-cart');
+
       router.replace(`/order-success?id=${data.id}`);
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Unable to place your order. Please try again.',
+          : 'Unable to place your order. Please try again.'
       );
     } finally {
       setBusy(false);
     }
-  };
+  }
 
   if (!authChecked) {
     return (
@@ -209,22 +202,22 @@ export default function CheckoutPage() {
     );
   }
 
-  if (!cart.length) {
+  if (!product) {
     return (
       <main className="adminWrap">
         <header className="adminHeader">
-          <a href="/" className="brand">
-            TalkThrift
-          </a>
+          <a href="/" className="brand">TalkThrift</a>
           <a href="/">Back to store ↗</a>
         </header>
 
         <section className="adminPanel">
-          <h1>Your bag is empty.</h1>
-          <p>Add an available item before checking out.</p>
+          <h1>No item selected.</h1>
+          <p>
+            Choose a product and tap Buy Now to continue.
+          </p>
 
           <a className="primary" href="/#shop">
-            Browse the store ↗
+            Browse the collection ↗
           </a>
 
           {message && <p className="notice">{message}</p>}
@@ -236,25 +229,20 @@ export default function CheckoutPage() {
   return (
     <main className="adminWrap">
       <header className="adminHeader">
-        <a href="/" className="brand">
-          TalkThrift
-        </a>
+        <a href="/" className="brand">TalkThrift</a>
         <a href="/">Back to store ↗</a>
       </header>
 
-      <form
-        className="adminPanel checkoutPanel"
-        onSubmit={submit}
-      >
-        <p className="eyebrow">SECURE ORDER DETAILS</p>
+      <form className="adminPanel checkoutPanel" onSubmit={submit}>
+        <p className="eyebrow">YOUR ORDER DETAILS</p>
 
         <h1>
           Almost <em>yours.</em>
         </h1>
 
         <p>
-          Logged in as {email}. Check your delivery details before
-          placing your order.
+          Logged in as {email}. Please review your information
+          before placing your order.
         </p>
 
         <label>
@@ -292,32 +280,22 @@ export default function CheckoutPage() {
         <div className="checkoutSummary">
           <h2>Order summary</h2>
 
-          {cart.map((product, index) => (
-            <div
-              className="cartItem"
-              key={`${product.id}-${index}`}
-            >
-              <span>
-                {product.name}
-                {product.size ? ` · ${product.size}` : ''}
-              </span>
-
-              <strong>
-                ₱{Number(product.price).toLocaleString('en-PH')}
-              </strong>
-            </div>
-          ))}
+          <div className="cartItem">
+            <span>
+              {product.name}
+              {product.size ? ` · ${product.size}` : ''}
+            </span>
+            <strong>{formatPrice(product.price)}</strong>
+          </div>
 
           <div className="cartTotal">
             <span>Subtotal</span>
-            <strong>
-              ₱{total.toLocaleString('en-PH')}
-            </strong>
+            <strong>{formatPrice(product.price)}</strong>
           </div>
 
           <p className="mutedNote">
-            Shipping fee and payment instructions will be confirmed
-            by the store before the order is finalized.
+            Shipping fees and payment instructions will be
+            confirmed by the seller before your order is finalized.
           </p>
         </div>
 
@@ -326,11 +304,17 @@ export default function CheckoutPage() {
           type="submit"
           disabled={busy || !userId}
         >
-          {busy ? 'Placing order...' : 'Place order (Cash on Delivery request)'}
+          {busy
+            ? 'Placing your order...'
+            : 'Place Order — Cash on Delivery Request'}
           {!busy && <span> ↗</span>}
         </button>
 
-        {message && <p className="notice">{message}</p>}
+        {message && (
+          <p role="status" className="notice">
+            {message}
+          </p>
+        )}
       </form>
     </main>
   );
