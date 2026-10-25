@@ -1,7 +1,13 @@
 
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -28,14 +34,32 @@ type Message = {
 };
 
 export default function MessagesPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={{ padding: 24 }}>
+          Loading messages...
+        </main>
+      }
+    >
+      <MessagesContent />
+    </Suspense>
+  );
+}
+
+function MessagesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedId = searchParams.get('conversation');
 
   const [userId, setUserId] = useState('');
   const [isOwner, setIsOwner] = useState(false);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(requestedId);
+  const [conversations, setConversations] = useState<
+    Conversation[]
+  >([]);
+  const [selectedId, setSelectedId] = useState<
+    string | null
+  >(requestedId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,14 +83,21 @@ export default function MessagesPage() {
     }
 
     const items = (data ?? []) as unknown as Conversation[];
+
     setConversations(items);
 
     setSelectedId((current) => {
-      if (requestedId && items.some((c) => c.id === requestedId)) {
+      if (
+        requestedId &&
+        items.some((conversation) => conversation.id === requestedId)
+      ) {
         return requestedId;
       }
 
-      if (current && items.some((c) => c.id === current)) {
+      if (
+        current &&
+        items.some((conversation) => conversation.id === current)
+      ) {
         return current;
       }
 
@@ -74,22 +105,27 @@ export default function MessagesPage() {
     });
   }, [requestedId]);
 
-  const loadMessages = useCallback(async (conversationId: string) => {
-    if (!supabase) return;
+  const loadMessages = useCallback(
+    async (conversationId: string) => {
+      if (!supabase) return;
 
-    const { data, error: queryError } = await supabase
-      .from('messages')
-      .select('id,conversation_id,sender_id,body,created_at')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+      const { data, error: queryError } = await supabase
+        .from('messages')
+        .select(
+          'id,conversation_id,sender_id,body,created_at'
+        )
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
 
-    if (queryError) {
-      setError(queryError.message);
-      return;
-    }
+      if (queryError) {
+        setError(queryError.message);
+        return;
+      }
 
-    setMessages((data ?? []) as Message[]);
-  }, []);
+      setMessages((data ?? []) as Message[]);
+    },
+    []
+  );
 
   useEffect(() => {
     let active = true;
@@ -126,9 +162,12 @@ export default function MessagesPage() {
       if (!active) return;
 
       setIsOwner(profile?.role === 'owner');
+
       await loadConversations();
 
-      if (active) setLoading(false);
+      if (active) {
+        setLoading(false);
+      }
     }
 
     void initialize();
@@ -150,22 +189,37 @@ export default function MessagesPage() {
       void loadMessages(selectedId);
     }, 4000);
 
-    return () => window.clearInterval(interval);
+    return () => {
+      window.clearInterval(interval);
+    };
   }, [selectedId, loadMessages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    });
   }, [messages.length, selectedId]);
 
-  async function sendMessage(event: FormEvent<HTMLFormElement>) {
+  async function sendMessage(
+    event: FormEvent<HTMLFormElement>
+  ) {
     event.preventDefault();
 
-    if (!supabase || !userId || !selectedId || busy) return;
+    if (
+      !supabase ||
+      !userId ||
+      !selectedId ||
+      busy
+    ) {
+      return;
+    }
 
     const body = draft.trim();
 
     if (!body || body.length > 2000) {
-      setError('Message must be between 1 and 2000 characters.');
+      setError(
+        'Message must be between 1 and 2000 characters.'
+      );
       return;
     }
 
@@ -181,7 +235,9 @@ export default function MessagesPage() {
       });
 
     if (insertError) {
-      setError(`Message not sent: ${insertError.message}`);
+      setError(
+        `Message not sent: ${insertError.message}`
+      );
     } else {
       setDraft('');
       await loadMessages(selectedId);
@@ -214,18 +270,33 @@ export default function MessagesPage() {
     >
       <Link
         href="/"
-        style={{ color: 'inherit', textDecoration: 'none' }}
+        style={{
+          color: 'inherit',
+          textDecoration: 'none',
+        }}
       >
         ← Back to TalkThrift
       </Link>
 
-      <h1 style={{ fontSize: 32, marginBottom: 4 }}>
+      <h1
+        style={{
+          fontSize: 32,
+          marginBottom: 4,
+        }}
+      >
         Messages
       </h1>
 
-      <p style={{ color: '#6b625b', marginTop: 0 }}>
+      <p
+        style={{
+          color: '#6b625b',
+          marginTop: 0,
+        }}
+      >
         Chat privately with{' '}
-        {isOwner ? 'your customers' : 'the TalkThrift seller'}.
+        {isOwner
+          ? 'your customers'
+          : 'the TalkThrift seller'}.
       </p>
 
       {error && (
@@ -273,57 +344,70 @@ export default function MessagesPage() {
             </h2>
 
             {conversations.length === 0 && (
-              <p style={{ padding: 12, fontSize: 14 }}>
-                No conversations yet. Open a product and
-                select Message Seller.
+              <p
+                style={{
+                  padding: 12,
+                  fontSize: 14,
+                }}
+              >
+                No conversations yet. Open a
+                product and select Message Seller.
               </p>
             )}
 
-            {conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                type="button"
-                onClick={() => {
-                  setSelectedId(conversation.id);
-                  setError('');
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: 14,
-                  border: 0,
-                  borderBottom: '1px solid #eee',
-                  background:
-                    selectedId === conversation.id
-                      ? '#f0e9df'
-                      : '#fff',
-                  color: '#26221e',
-                  cursor: 'pointer',
-                }}
-              >
-                <strong
+            {conversations.map(
+              (conversation) => (
+                <button
+                  key={conversation.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedId(
+                      conversation.id
+                    );
+                    setError('');
+                  }}
                   style={{
                     display: 'block',
-                    overflowWrap: 'anywhere',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: 14,
+                    border: 0,
+                    borderBottom:
+                      '1px solid #eee',
+                    background:
+                      selectedId ===
+                      conversation.id
+                        ? '#f0e9df'
+                        : '#fff',
+                    color: '#26221e',
+                    cursor: 'pointer',
                   }}
                 >
-                  {conversation.products?.name ?? 'Product'}
-                </strong>
+                  <strong
+                    style={{
+                      display: 'block',
+                      overflowWrap:
+                        'anywhere',
+                    }}
+                  >
+                    {conversation.products
+                      ?.name ?? 'Product'}
+                  </strong>
 
-                <small
-                  style={{
-                    display: 'block',
-                    marginTop: 4,
-                    color: '#756b62',
-                  }}
-                >
-                  {isOwner
-                    ? `Buyer ${conversation.buyer_id.slice(0, 8)}…`
-                    : 'TalkThrift Seller'}
-                </small>
-              </button>
-            ))}
+                  <small
+                    style={{
+                      display: 'block',
+                      marginTop: 4,
+                      color: '#756b62',
+                    }}
+                  >
+                    {isOwner
+                      ? `Buyer ${conversation.buyer_id.slice(0, 8)}…`
+                      : 'TalkThrift Seller'}
+                  </small>
+                </button>
+              )
+            )}
           </aside>
 
           <section
@@ -338,11 +422,13 @@ export default function MessagesPage() {
                 <header
                   style={{
                     padding: 16,
-                    borderBottom: '1px solid #eee',
+                    borderBottom:
+                      '1px solid #eee',
                   }}
                 >
                   <strong>
-                    {selected.products?.name ??
+                    {selected.products
+                      ?.name ??
                       'Product conversation'}
                   </strong>
 
@@ -353,14 +439,19 @@ export default function MessagesPage() {
                         color: '#786d63',
                       }}
                     >
-                      {money(selected.products.price)}
+                      {money(
+                        selected.products
+                          .price
+                      )}
                     </span>
                   )}
 
                   <div>
                     <Link
                       href={`/product/${selected.product_id}`}
-                      style={{ fontSize: 13 }}
+                      style={{
+                        fontSize: 13,
+                      }}
                     >
                       View product
                     </Link>
@@ -375,71 +466,94 @@ export default function MessagesPage() {
                     overflowY: 'auto',
                     padding: 16,
                     display: 'flex',
-                    flexDirection: 'column',
+                    flexDirection:
+                      'column',
                     gap: 12,
                   }}
                 >
                   {messages.length === 0 && (
-                    <p style={{ color: '#756b62' }}>
-                      Start your conversation below.
+                    <p
+                      style={{
+                        color: '#756b62',
+                      }}
+                    >
+                      Start your conversation
+                      below.
                     </p>
                   )}
 
-                  {messages.map((message) => {
-                    const mine =
-                      message.sender_id === userId;
+                  {messages.map(
+                    (message) => {
+                      const mine =
+                        message.sender_id ===
+                        userId;
 
-                    return (
-                      <div
-                        key={message.id}
-                        style={{
-                          alignSelf: mine
-                            ? 'flex-end'
-                            : 'flex-start',
-                          maxWidth: '85%',
-                          padding: '10px 14px',
-                          background: mine
-                            ? '#e2eadc'
-                            : '#f3f0ec',
-                          borderRadius: 14,
-                          overflowWrap: 'anywhere',
-                        }}
-                      >
+                      return (
                         <div
-                          style={{ whiteSpace: 'pre-wrap' }}
-                        >
-                          {message.body}
-                        </div>
-
-                        <small
+                          key={message.id}
                           style={{
-                            display: 'block',
-                            marginTop: 5,
-                            color: '#70685f',
+                            alignSelf: mine
+                              ? 'flex-end'
+                              : 'flex-start',
+                            maxWidth:
+                              '85%',
+                            padding:
+                              '10px 14px',
+                            background: mine
+                              ? '#e2eadc'
+                              : '#f3f0ec',
+                            borderRadius:
+                              14,
+                            overflowWrap:
+                              'anywhere',
                           }}
                         >
-                          {mine
-                            ? 'You'
-                            : isOwner
-                              ? 'Buyer'
-                              : 'Seller'}
-                          {' · '}
-                          {time(message.created_at)}
-                        </small>
-                      </div>
-                    );
-                  })}
+                          <div
+                            style={{
+                              whiteSpace:
+                                'pre-wrap',
+                            }}
+                          >
+                            {message.body}
+                          </div>
+
+                          <small
+                            style={{
+                              display:
+                                'block',
+                              marginTop: 5,
+                              color:
+                                '#70685f',
+                            }}
+                          >
+                            {mine
+                              ? 'You'
+                              : isOwner
+                                ? 'Buyer'
+                                : 'Seller'}
+                            {' · '}
+                            {time(
+                              message.created_at
+                            )}
+                          </small>
+                        </div>
+                      );
+                    }
+                  )}
 
                   <div ref={bottomRef} />
                 </div>
 
                 <form
-                  onSubmit={sendMessage}
+                  onSubmit={
+                    sendMessage
+                  }
                   style={{
                     display: 'flex',
                     gap: 8,
                     padding: 12,
-                    borderTop: '1px solid #eee',
+                    borderTop:
+                      '1px solid #eee',
                   }}
                 >
                   <input
@@ -447,37 +561,53 @@ export default function MessagesPage() {
                     value={draft}
                     maxLength={2000}
                     onChange={(event) =>
-                      setDraft(event.target.value)
+                      setDraft(
+                        event.target.value
+                      )
                     }
                     placeholder="Type a message..."
                     style={{
                       flex: 1,
                       minWidth: 0,
                       padding: 12,
-                      border: '1px solid #cfc6bd',
+                      border:
+                        '1px solid #cfc6bd',
                       borderRadius: 8,
                     }}
                   />
 
                   <button
                     type="submit"
-                    disabled={busy || !draft.trim()}
+                    disabled={
+                      busy ||
+                      !draft.trim()
+                    }
                     style={{
-                      padding: '10px 16px',
+                      padding:
+                        '10px 16px',
                       border: 0,
                       borderRadius: 8,
-                      background: '#313d2c',
+                      background:
+                        '#313d2c',
                       color: '#fff',
-                      cursor: 'pointer',
+                      cursor:
+                        'pointer',
                     }}
                   >
-                    {busy ? 'Sending...' : 'Send'}
+                    {busy
+                      ? 'Sending...'
+                      : 'Send'}
                   </button>
                 </form>
               </>
             ) : (
-              <div style={{ padding: 24 }}>
-                Select a conversation to start chatting.
+              <div
+                style={{
+                  padding: 24,
+                }}
+              >
+                Select a conversation
+                to start chatting.
               </div>
             )}
           </section>
