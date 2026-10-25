@@ -1344,3 +1344,98 @@ footer small {
     width: 100%;
   }
 }
+
+/* =====================================
+   TALKTHRIFT - MY ORDERS PAGE
+===================================== */
+
+.orderCard {
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dfe3ee;
+  border-radius: 12px;
+}
+
+.orderCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e5e8ef;
+}
+
+.orderCardHeader strong {
+  display: block;
+  margin: 6px 0;
+  color: #243f9b;
+  font-size: 18px;
+}
+
+.orderCardHeader p {
+  margin-bottom: 4px;
+  color: #697386;
+  font-size: 13px;
+}
+
+.orderStatus {
+  display: inline-block;
+  padding: 9px 13px;
+  border: 1px solid #cbd5ee;
+  border-radius: 20px;
+  background: #edf1ff;
+  color: #243f9b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.orderItems {
+  padding: 12px 0;
+}
+
+.orderItems .cartItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf0f5;
+  font-size: 14px;
+}
+
+.orderCard .cartTotal {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #dfe3ee;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.orderCard .cartTotal strong {
+  color: #243f9b;
+  font-size: 17px;
+}
+
+@media (max-width: 600px) {
+  .orderCard {
+    padding: 18px;
+  }
+
+  .orderCardHeader strong {
+    font-size: 16px;
+  }
+
+  .orderItems .cartItem,
+  .orderCard .cartTotal {
+    font-size: 12px;
+  }
+
+  .orderCard .cartTotal strong {
+    font-size: 15px;
+  }
+}
