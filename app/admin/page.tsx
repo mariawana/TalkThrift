@@ -1,9 +1,18 @@
 
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { supabase, supabaseConfigCheck } from '@/lib/supabase';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
+import type { CSSProperties } from 'react';
 import type { Session } from '@supabase/supabase-js';
+import {
+  supabase,
+  supabaseConfigCheck,
+} from '@/lib/supabase';
 
 type Product = {
   id: string;
@@ -40,13 +49,21 @@ type Offer = {
   created_at: string;
 };
 
-type Tab = 'overview' | 'products' | 'orders' | 'offers' | 'contact';
+type Tab =
+  | 'overview'
+  | 'products'
+  | 'orders'
+  | 'offers'
+  | 'contact';
 
 const BUCKET = 'product-photos';
 const MAX_TOTAL_PHOTO_BYTES = 50 * 1024 * 1024;
 
-const FACEBOOK = 'https://www.facebook.com/kilme.rudy';
-const INSTAGRAM = 'https://www.instagram.com/talkthriftwhsorudy/';
+const FACEBOOK =
+  'https://www.facebook.com/kilme.rudy';
+
+const INSTAGRAM =
+  'https://www.instagram.com/talkthriftwhsorudy/';
 
 const initialForm = {
   name: '',
@@ -58,7 +75,7 @@ const initialForm = {
   status: 'available',
 };
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   display: 'block',
   width: '100%',
   boxSizing: 'border-box',
@@ -71,14 +88,14 @@ const inputStyle: React.CSSProperties = {
   color: '#172554',
 };
 
-const cardStyle: React.CSSProperties = {
+const cardStyle: CSSProperties = {
   background: '#fff',
   border: '1px solid #dbe3f0',
   borderRadius: 16,
   padding: 18,
 };
 
-const buttonStyle: React.CSSProperties = {
+const buttonStyle: CSSProperties = {
   border: 0,
   borderRadius: 9,
   padding: '11px 16px',
@@ -88,7 +105,7 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const secondaryStyle: React.CSSProperties = {
+const secondaryStyle: CSSProperties = {
   ...buttonStyle,
   background: '#e9eefb',
   color: '#233fbd',
@@ -118,18 +135,25 @@ function displayItems(items: unknown): string {
   }
 
   if (Array.isArray(items)) {
-    return items.map((item) => {
-      if (typeof item === 'string') return item;
+    return items
+      .map((item) => {
+        if (typeof item === 'string') return item;
 
-      if (item && typeof item === 'object') {
-        const entry = item as Record<string, unknown>;
-        const name = String(entry.name ?? entry.title ?? 'Item');
-        const quantity = Number(entry.quantity ?? 1);
-        return `${name} × ${quantity}`;
-      }
+        if (item && typeof item === 'object') {
+          const entry = item as Record<string, unknown>;
+          const name = String(
+            entry.name ?? entry.title ?? 'Item'
+          );
+          const quantity = Number(
+            entry.quantity ?? 1
+          );
 
-      return String(item);
-    }).join(', ');
+          return `${name} × ${quantity}`;
+        }
+
+        return String(item);
+      })
+      .join(', ');
   }
 
   if (items && typeof items === 'object') {
@@ -140,7 +164,9 @@ function displayItems(items: unknown): string {
 }
 
 export default function Admin() {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] =
+    useState<Session | null>(null);
+
   const [checking, setChecking] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
 
@@ -148,13 +174,21 @@ export default function Admin() {
   const [password, setPassword] = useState('');
 
   const [tab, setTab] = useState<Tab>('overview');
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [offers, setOffers] = useState<Offer[]>([]);
+
+  const [products, setProducts] =
+    useState<Product[]>([]);
+
+  const [orders, setOrders] =
+    useState<Order[]>([]);
+
+  const [offers, setOffers] =
+    useState<Offer[]>([]);
 
   const [form, setForm] = useState(initialForm);
   const [photos, setPhotos] = useState<File[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const [editingId, setEditingId] =
+    useState<string | null>(null);
 
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -167,40 +201,67 @@ export default function Admin() {
   const loadData = useCallback(async () => {
     if (!supabase) return;
 
-    const [productResult, orderResult, offerResult] =
-      await Promise.all([
-        supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false }),
+    const [
+      productResult,
+      orderResult,
+      offerResult,
+    ] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*')
+        .order('created_at', {
+          ascending: false,
+        }),
 
-        supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false }),
+      supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', {
+          ascending: false,
+        }),
 
-        supabase
-          .from('offers')
-          .select('*')
-          .order('created_at', { ascending: false }),
-      ]);
+      supabase
+        .from('offers')
+        .select('*')
+        .order('created_at', {
+          ascending: false,
+        }),
+    ]);
+
+    const errors: string[] = [];
 
     if (productResult.error) {
-      setMessage(`Products: ${productResult.error.message}`);
+      errors.push(
+        `Products: ${productResult.error.message}`
+      );
     } else {
-      setProducts((productResult.data ?? []) as Product[]);
+      setProducts(
+        (productResult.data ?? []) as Product[]
+      );
     }
 
     if (orderResult.error) {
-      setMessage(`Orders: ${orderResult.error.message}`);
+      errors.push(
+        `Orders: ${orderResult.error.message}`
+      );
     } else {
-      setOrders((orderResult.data ?? []) as Order[]);
+      setOrders(
+        (orderResult.data ?? []) as Order[]
+      );
     }
 
     if (offerResult.error) {
-      setMessage(`Offers: ${offerResult.error.message}`);
+      errors.push(
+        `Offers: ${offerResult.error.message}`
+      );
     } else {
-      setOffers((offerResult.data ?? []) as Offer[]);
+      setOffers(
+        (offerResult.data ?? []) as Offer[]
+      );
+    }
+
+    if (errors.length > 0) {
+      setMessage(errors.join(' | '));
     }
   }, []);
 
@@ -213,7 +274,9 @@ export default function Admin() {
     const client = supabase;
     let active = true;
 
-    async function checkAccount(nextSession: Session | null) {
+    async function checkAccount(
+      nextSession: Session | null
+    ) {
       if (!active) return;
 
       setChecking(true);
@@ -221,6 +284,9 @@ export default function Admin() {
       setIsOwner(false);
 
       if (!nextSession) {
+        setProducts([]);
+        setOrders([]);
+        setOffers([]);
         setChecking(false);
         return;
       }
@@ -234,10 +300,13 @@ export default function Admin() {
       if (!active) return;
 
       if (error) {
-        setMessage(`Account check failed: ${error.message}`);
+        setMessage(
+          `Account check failed: ${error.message}`
+        );
       }
 
-      const owner = !error && data?.role === 'owner';
+      const owner =
+        !error && data?.role === 'owner';
 
       setIsOwner(owner);
       setChecking(false);
@@ -247,29 +316,33 @@ export default function Admin() {
       }
     }
 
-    void client.auth.getSession().then(({ data, error }) => {
-      if (!active) return;
+    void client.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!active) return;
 
-      if (error) {
-        setMessage(error.message);
-        setChecking(false);
-        return;
-      }
+        if (error) {
+          setMessage(error.message);
+          setChecking(false);
+          return;
+        }
 
-      void checkAccount(data.session);
-    });
+        void checkAccount(data.session);
+      });
 
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, nextSession) => {
-      if (active) {
-        // Avoid running Supabase requests synchronously
-        // inside the auth callback.
-        setTimeout(() => {
-          if (active) void checkAccount(nextSession);
-        }, 0);
+    } = client.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        if (active) {
+          setTimeout(() => {
+            if (active) {
+              void checkAccount(nextSession);
+            }
+          }, 0);
+        }
       }
-    });
+    );
 
     return () => {
       active = false;
@@ -277,7 +350,9 @@ export default function Admin() {
     };
   }, [loadData]);
 
-  async function login(e: FormEvent<HTMLFormElement>) {
+  async function login(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     if (!supabase) return;
@@ -285,31 +360,56 @@ export default function Admin() {
     setBusy(true);
     setMessage('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
-    if (error) setMessage(error.message);
+      if (error) {
+        setMessage(error.message);
+      }
+    } catch {
+      setMessage(
+        'Unable to sign in. Please try again.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
 
-    setBusy(false);
+  function resetForm() {
+    setForm({ ...initialForm });
+    setPhotos([]);
+    setEditingId(null);
+
+    const input = document.getElementById(
+      'product-photos'
+    ) as HTMLInputElement | null;
+
+    if (input) {
+      input.value = '';
+    }
   }
 
   async function logout() {
     if (!supabase) return;
 
-    const { error } = await supabase.auth.signOut();
+    const { error } =
+      await supabase.auth.signOut();
 
     if (error) {
       setMessage(error.message);
-    } else {
-      setSession(null);
-      setIsOwner(false);
-      setProducts([]);
-      setOrders([]);
-      setOffers([]);
-      resetForm();
+      return;
     }
+
+    setSession(null);
+    setIsOwner(false);
+    setProducts([]);
+    setOrders([]);
+    setOffers([]);
+    resetForm();
   }
 
   function choosePhotos(files: FileList | null) {
@@ -317,8 +417,14 @@ export default function Admin() {
 
     const selected = Array.from(files);
 
-    if (selected.some((file) => !file.type.startsWith('image/'))) {
-      setMessage('Please select image files only.');
+    if (
+      selected.some(
+        (file) => !file.type.startsWith('image/')
+      )
+    ) {
+      setMessage(
+        'Please select image files only.'
+      );
       return;
     }
 
@@ -340,31 +446,32 @@ export default function Admin() {
     );
 
     if (total > MAX_TOTAL_PHOTO_BYTES) {
-      setMessage('Combined photos must be 50 MB or less.');
+      setMessage(
+        'Combined photos must be 50 MB or less.'
+      );
       return;
     }
 
     setPhotos(unique);
-    setMessage(`${unique.length} photo(s) selected.`);
+
+    setMessage(
+      `${unique.length} photo(s) selected.`
+    );
   }
 
-  function resetForm() {
-    setForm({ ...initialForm });
-    setPhotos([]);
-    setEditingId(null);
-
-    const input = document.getElementById(
-      'product-photos'
-    ) as HTMLInputElement | null;
-
-    if (input) input.value = '';
-  }
-
-  async function saveProduct(e: FormEvent<HTMLFormElement>) {
+  async function saveProduct(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
-    if (!supabase || !session?.user || !isOwner) {
-      setMessage('Owner access is required.');
+    if (
+      !supabase ||
+      !session?.user ||
+      !isOwner
+    ) {
+      setMessage(
+        'Owner access is required.'
+      );
       return;
     }
 
@@ -374,12 +481,19 @@ export default function Admin() {
       !Number.isFinite(Number(form.price)) ||
       Number(form.price) < 0
     ) {
-      setMessage('Enter a valid product name and price.');
+      setMessage(
+        'Enter a valid product name and price.'
+      );
       return;
     }
 
-    if (totalPhotoBytes > MAX_TOTAL_PHOTO_BYTES) {
-      setMessage('Photos must total 50 MB or less.');
+    if (
+      totalPhotoBytes >
+      MAX_TOTAL_PHOTO_BYTES
+    ) {
+      setMessage(
+        'Photos must total 50 MB or less.'
+      );
       return;
     }
 
@@ -396,23 +510,28 @@ export default function Admin() {
         );
 
         const path =
-          `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
+          `${session.user.id}/` +
+          `${crypto.randomUUID()}-${safeName}`;
 
-        const { error } = await supabase.storage
-          .from(BUCKET)
-          .upload(path, photo, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: photo.type,
-          });
+        const { error } =
+          await supabase.storage
+            .from(BUCKET)
+            .upload(path, photo, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: photo.type,
+            });
 
         if (error) {
-          throw new Error(`Photo upload failed: ${error.message}`);
+          throw new Error(
+            `Photo upload failed: ${error.message}`
+          );
         }
 
-        const { data } = supabase.storage
-          .from(BUCKET)
-          .getPublicUrl(path);
+        const { data } =
+          supabase.storage
+            .from(BUCKET)
+            .getPublicUrl(path);
 
         imageUrls.push(data.publicUrl);
       }
@@ -423,19 +542,24 @@ export default function Admin() {
         size: form.size.trim() || null,
         condition: form.condition,
         price: Number(form.price),
-        description: form.description.trim() || null,
+        description:
+          form.description.trim() || null,
         status: form.status,
       };
 
       if (editingId) {
-        const { data: oldProduct, error: readError } =
-          await supabase
-            .from('products')
-            .select('image_urls, image_url')
-            .eq('id', editingId)
-            .single();
+        const {
+          data: oldProduct,
+          error: readError,
+        } = await supabase
+          .from('products')
+          .select('image_urls, image_url')
+          .eq('id', editingId)
+          .single();
 
-        if (readError) throw readError;
+        if (readError) {
+          throw readError;
+        }
 
         const oldUrls: string[] =
           oldProduct.image_urls?.length
@@ -445,7 +569,10 @@ export default function Admin() {
               : [];
 
         const allUrls = Array.from(
-          new Set([...oldUrls, ...imageUrls])
+          new Set([
+            ...oldUrls,
+            ...imageUrls,
+          ])
         );
 
         const { error } = await supabase
@@ -457,21 +584,30 @@ export default function Admin() {
           })
           .eq('id', editingId);
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-        setMessage('Product updated successfully.');
+        setMessage(
+          'Product updated successfully.'
+        );
       } else {
         const { error } = await supabase
           .from('products')
           .insert({
             ...productData,
             image_urls: imageUrls,
-            image_url: imageUrls[0] || null,
+            image_url:
+              imageUrls[0] || null,
           });
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-        setMessage('Product added successfully.');
+        setMessage(
+          'Product added successfully.'
+        );
       }
 
       resetForm();
@@ -492,12 +628,16 @@ export default function Admin() {
 
     setForm({
       name: product.name,
-      category: product.category || 'Tops',
+      category:
+        product.category || 'Tops',
       size: product.size || '',
-      condition: product.condition || 'Very good',
+      condition:
+        product.condition || 'Very good',
       price: String(product.price),
-      description: product.description || '',
-      status: product.status || 'available',
+      description:
+        product.description || '',
+      status:
+        product.status || 'available',
     });
 
     setPhotos([]);
@@ -507,7 +647,10 @@ export default function Admin() {
       'Editing product. Existing photos will be kept.'
     );
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    });
   }
 
   async function updateProductStatus(
@@ -516,50 +659,68 @@ export default function Admin() {
   ) {
     if (!supabase || !isOwner) return;
 
-    const { error } = await supabase
-      .from('products')
-      .update({ status })
-      .eq('id', productId);
-
-    setMessage(
-      error
-        ? `Status update failed: ${error.message}`
-        : 'Product status updated.'
-    );
-
-    if (!error) await loadData();
-  }
-
-  async function deleteProduct(product: Product) {
-    if (!supabase || !isOwner) return;
-
-    if (
-      !window.confirm(
-        `Delete "${product.name}"? This cannot be undone.`
-      )
-    ) {
-      return;
-    }
-
     setBusy(true);
 
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', product.id);
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ status })
+        .eq('id', productId);
 
-    setMessage(
-      error
-        ? `Delete failed: ${error.message}`
-        : 'Product deleted.'
+      if (error) {
+        setMessage(
+          `Status update failed: ${error.message}`
+        );
+      } else {
+        setMessage(
+          'Product status updated.'
+        );
+        await loadData();
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteProduct(
+    product: Product
+  ) {
+    if (!supabase || !isOwner) return;
+
+    const confirmed = window.confirm(
+      `Delete "${product.name}"? This cannot be undone.`
     );
 
-    if (!error) {
-      if (editingId === product.id) resetForm();
-      await loadData();
-    }
+    if (!confirmed) return;
 
-    setBusy(false);
+    setBusy(true);
+    setMessage('');
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id);
+
+      if (error) {
+        throw error;
+      }
+
+      if (editingId === product.id) {
+        resetForm();
+      }
+
+      setMessage('Product deleted.');
+      await loadData();
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `Delete failed: ${error.message}`
+          : 'Unable to delete product.'
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function updateOrderStatus(
@@ -570,22 +731,32 @@ export default function Admin() {
 
     setBusy(true);
 
-    const { error } = await supabase
-      .from('orders')
-      .update({ status })
-      .eq('id', orderId);
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
 
-    setMessage(
-      error
-        ? `Order update failed: ${error.message}`
-        : 'Order status updated.'
-    );
-
-    if (!error) await loadData();
-
-    setBusy(false);
+      if (error) {
+        setMessage(
+          `Order update failed: ${error.message}`
+        );
+      } else {
+        setMessage(
+          'Order status updated.'
+        );
+        await loadData();
+      }
+    } catch {
+      setMessage(
+        'Unable to update order.'
+      );
+    } finally {
+      setBusy(false);
+    }
   }
 
+  // CORRECTED OFFER STATUS FUNCTION
   async function updateOfferStatus(
     offerId: string,
     status: 'accepted' | 'rejected'
@@ -593,45 +764,72 @@ export default function Admin() {
     if (!supabase || !isOwner) return;
 
     setBusy(true);
+    setMessage('');
 
-    const { error } = await supabase
-      .from('offers')
-      .update({ status })
-      .eq('id', offerId)
-      .eq('status', 'pending')
-      .select('id');
+    try {
+      const { data, error } = await supabase
+        .from('offers')
+        .update({ status })
+        .eq('id', offerId)
+        .eq('status', 'pending')
+        .select('id');
 
-    if (error.error) {
-      setMessage(`Offer update failed: ${error.error.message}`);
-    } else if (!error.data?.length) {
-      setMessage('Offer was already updated. Refresh and try again.');
-    } else {
-      setMessage(`Offer ${status}.`);
-      await loadData();
+      if (error) {
+        setMessage(
+          `Offer update failed: ${error.message}`
+        );
+      } else if (!data?.length) {
+        setMessage(
+          'Offer was already updated. Refresh and try again.'
+        );
+      } else {
+        setMessage(
+          `Offer ${status}.`
+        );
+        await loadData();
+      }
+    } catch {
+      setMessage(
+        'Unable to update offer. Please try again.'
+      );
+    } finally {
+      setBusy(false);
     }
-
-    setBusy(false);
   }
 
-  const availableCount = products.filter(
-    (p) => p.status === 'available'
-  ).length;
+  const availableCount =
+    products.filter(
+      (product) =>
+        product.status === 'available'
+    ).length;
 
-  const pendingOrders = orders.filter(
-    (o) => o.status === 'pending'
-  ).length;
+  const pendingOrders =
+    orders.filter(
+      (order) =>
+        order.status === 'pending'
+    ).length;
 
-  const pendingOffers = offers.filter(
-    (o) => o.status === 'pending'
-  ).length;
+  const pendingOffers =
+    offers.filter(
+      (offer) =>
+        offer.status === 'pending'
+    ).length;
 
   if (!supabase) {
     return (
       <main style={{ padding: 24 }}>
         <h1>TalkThrift Admin</h1>
-        <p>Supabase is not configured.</p>
+
+        <p>
+          Supabase is not configured.
+        </p>
+
         <pre>
-          {JSON.stringify(supabaseConfigCheck, null, 2)}
+          {JSON.stringify(
+            supabaseConfigCheck,
+            null,
+            2
+          )}
         </pre>
       </main>
     );
@@ -655,25 +853,38 @@ export default function Admin() {
         }}
       >
         <h1>TalkThrift Seller Login</h1>
-        <p>Sign in with your owner account.</p>
+
+        <p>
+          Sign in with your owner account.
+        </p>
 
         <form onSubmit={login}>
-          <label htmlFor="admin-email">Email</label>
+          <label htmlFor="admin-email">
+            Email
+          </label>
+
           <input
             id="admin-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) =>
+              setEmail(e.target.value)
+            }
             required
             style={inputStyle}
           />
 
-          <label htmlFor="admin-password">Password</label>
+          <label htmlFor="admin-password">
+            Password
+          </label>
+
           <input
             id="admin-password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
             required
             style={inputStyle}
           />
@@ -683,11 +894,17 @@ export default function Admin() {
             disabled={busy}
             style={buttonStyle}
           >
-            {busy ? 'Signing in...' : 'Sign In'}
+            {busy
+              ? 'Signing in...'
+              : 'Sign In'}
           </button>
         </form>
 
-        {message && <p role="status">{message}</p>}
+        {message && (
+          <p role="status">
+            {message}
+          </p>
+        )}
       </main>
     );
   }
@@ -704,15 +921,21 @@ export default function Admin() {
         <h1>Owner Access Required</h1>
 
         <p>
-          This account does not have permission to access
-          the TalkThrift Seller Dashboard.
+          This account does not have
+          permission to access the
+          TalkThrift Seller Dashboard.
         </p>
 
         <p>
-          Your account must have the owner role in Supabase.
+          Your account must have the
+          owner role in Supabase.
         </p>
 
-        {message && <p role="status">{message}</p>}
+        {message && (
+          <p role="status">
+            {message}
+          </p>
+        )}
 
         <button
           type="button"
@@ -725,12 +948,30 @@ export default function Admin() {
     );
   }
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'products', label: 'Products' },
-    { id: 'orders', label: 'Orders' },
-    { id: 'offers', label: 'Offers' },
-    { id: 'contact', label: 'Seller Contact' },
+  const tabs: {
+    id: Tab;
+    label: string;
+  }[] = [
+    {
+      id: 'overview',
+      label: 'Overview',
+    },
+    {
+      id: 'products',
+      label: 'Products',
+    },
+    {
+      id: 'orders',
+      label: 'Orders',
+    },
+    {
+      id: 'offers',
+      label: 'Offers',
+    },
+    {
+      id: 'contact',
+      label: 'Seller Contact',
+    },
   ];
 
   return (
@@ -742,28 +983,48 @@ export default function Admin() {
         padding: '22px 16px 60px',
       }}
     >
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: '0 auto',
+        }}
+      >
         <header
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            justifyContent:
+              'space-between',
             flexWrap: 'wrap',
             gap: 16,
             marginBottom: 24,
           }}
         >
           <div>
-            <p style={{ color: '#4762c6', fontWeight: 700 }}>
+            <p
+              style={{
+                color: '#4762c6',
+                fontWeight: 700,
+              }}
+            >
               TALKTHRIFT
             </p>
 
-            <h1 style={{ margin: '4px 0' }}>
+            <h1
+              style={{
+                margin: '4px 0',
+              }}
+            >
               Seller Dashboard
             </h1>
 
-            <p style={{ color: '#64748b' }}>
-              Manage your thrift store in one place.
+            <p
+              style={{
+                color: '#64748b',
+              }}
+            >
+              Manage your thrift store
+              in one place.
             </p>
           </div>
 
@@ -834,14 +1095,36 @@ export default function Admin() {
               }}
             >
               {[
-                ['Total Products', products.length],
-                ['Available Items', availableCount],
-                ['Total Orders', orders.length],
-                ['Pending Orders', pendingOrders],
-                ['Pending Offers', pendingOffers],
+                [
+                  'Total Products',
+                  products.length,
+                ],
+                [
+                  'Available Items',
+                  availableCount,
+                ],
+                [
+                  'Total Orders',
+                  orders.length,
+                ],
+                [
+                  'Pending Orders',
+                  pendingOrders,
+                ],
+                [
+                  'Pending Offers',
+                  pendingOffers,
+                ],
               ].map(([label, value]) => (
-                <div key={String(label)} style={cardStyle}>
-                  <p style={{ color: '#64748b' }}>
+                <div
+                  key={String(label)}
+                  style={cardStyle}
+                >
+                  <p
+                    style={{
+                      color: '#64748b',
+                    }}
+                  >
                     {label}
                   </p>
 
@@ -858,7 +1141,12 @@ export default function Admin() {
               ))}
             </div>
 
-            <div style={{ ...cardStyle, marginTop: 22 }}>
+            <div
+              style={{
+                ...cardStyle,
+                marginTop: 22,
+              }}
+            >
               <h2>Quick Actions</h2>
 
               <div
@@ -871,7 +1159,9 @@ export default function Admin() {
                 <button
                   type="button"
                   style={buttonStyle}
-                  onClick={() => setTab('products')}
+                  onClick={() =>
+                    setTab('products')
+                  }
                 >
                   Manage Products
                 </button>
@@ -879,7 +1169,9 @@ export default function Admin() {
                 <button
                   type="button"
                   style={secondaryStyle}
-                  onClick={() => setTab('orders')}
+                  onClick={() =>
+                    setTab('orders')
+                  }
                 >
                   View Orders
                 </button>
@@ -887,7 +1179,9 @@ export default function Admin() {
                 <button
                   type="button"
                   style={secondaryStyle}
-                  onClick={() => setTab('offers')}
+                  onClick={() =>
+                    setTab('offers')
+                  }
                 >
                   Review Offers
                 </button>
@@ -895,7 +1189,9 @@ export default function Admin() {
                 <button
                   type="button"
                   style={secondaryStyle}
-                  onClick={() => void loadData()}
+                  onClick={() =>
+                    void loadData()
+                  }
                 >
                   Refresh Data
                 </button>
@@ -1038,7 +1334,8 @@ export default function Admin() {
                   onChange={(e) =>
                     setForm({
                       ...form,
-                      description: e.target.value,
+                      description:
+                        e.target.value,
                     })
                   }
                   style={inputStyle}
@@ -1062,12 +1359,15 @@ export default function Admin() {
                   <option value="available">
                     Available
                   </option>
+
                   <option value="reserved">
                     Reserved
                   </option>
+
                   <option value="sold">
                     Sold
                   </option>
+
                   <option value="hidden">
                     Hidden
                   </option>
@@ -1075,7 +1375,9 @@ export default function Admin() {
 
                 <label htmlFor="product-photos">
                   Product Photos
-                  {editingId ? ' (add more photos)' : ''}
+                  {editingId
+                    ? ' (add more photos)'
+                    : ''}
                 </label>
 
                 <input
@@ -1084,14 +1386,19 @@ export default function Admin() {
                   accept="image/*"
                   multiple
                   onChange={(e) =>
-                    choosePhotos(e.target.files)
+                    choosePhotos(
+                      e.target.files
+                    )
                   }
                   style={inputStyle}
                 />
 
                 <p>
                   {photos.length} selected ·{' '}
-                  {formatBytes(totalPhotoBytes)} / 50 MB
+                  {formatBytes(
+                    totalPhotoBytes
+                  )}{' '}
+                  / 50 MB
                 </p>
 
                 {photos.length > 0 && (
@@ -1103,44 +1410,62 @@ export default function Admin() {
                       marginBottom: 16,
                     }}
                   >
-                    {photos.map((photo, index) => (
-                      <div
-                        key={`${photo.name}-${index}`}
-                        style={{
-                          border: '1px solid #dbe3f0',
-                          padding: 10,
-                          borderRadius: 9,
-                          maxWidth: 180,
-                        }}
-                      >
-                        <p
+                    {photos.map(
+                      (photo, index) => (
+                        <div
+                          key={
+                            `${photo.name}-` +
+                            `${index}`
+                          }
                           style={{
-                            fontSize: 12,
-                            overflowWrap: 'anywhere',
+                            border:
+                              '1px solid #dbe3f0',
+                            padding: 10,
+                            borderRadius: 9,
+                            maxWidth: 180,
                           }}
                         >
-                          {photo.name}
-                        </p>
+                          <p
+                            style={{
+                              fontSize: 12,
+                              overflowWrap:
+                                'anywhere',
+                            }}
+                          >
+                            {photo.name}
+                          </p>
 
-                        <p style={{ fontSize: 12 }}>
-                          {formatBytes(photo.size)}
-                        </p>
+                          <p
+                            style={{
+                              fontSize: 12,
+                            }}
+                          >
+                            {formatBytes(
+                              photo.size
+                            )}
+                          </p>
 
-                        <button
-                          type="button"
-                          style={secondaryStyle}
-                          onClick={() =>
-                            setPhotos((current) =>
-                              current.filter(
-                                (_, i) => i !== index
+                          <button
+                            type="button"
+                            style={
+                              secondaryStyle
+                            }
+                            onClick={() =>
+                              setPhotos(
+                                (current) =>
+                                  current.filter(
+                                    (_, i) =>
+                                      i !==
+                                      index
+                                  )
                               )
-                            )
-                          }
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
+                            }
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
 
@@ -1166,7 +1491,9 @@ export default function Admin() {
                   {editingId && (
                     <button
                       type="button"
-                      style={secondaryStyle}
+                      style={
+                        secondaryStyle
+                      }
                       onClick={resetForm}
                     >
                       Cancel Edit
@@ -1176,8 +1503,13 @@ export default function Admin() {
               </form>
             </div>
 
-            <h2 style={{ marginTop: 30 }}>
-              Your Products ({products.length})
+            <h2
+              style={{
+                marginTop: 30,
+              }}
+            >
+              Your Products (
+              {products.length})
             </h2>
 
             {products.length === 0 ? (
@@ -1191,114 +1523,163 @@ export default function Admin() {
                   gap: 16,
                 }}
               >
-                {products.map((product) => {
-                  const image =
-                    product.image_urls?.[0] ||
-                    product.image_url;
+                {products.map(
+                  (product) => {
+                    const image =
+                      product
+                        .image_urls?.[0] ||
+                      product.image_url;
 
-                  return (
-                    <article
-                      key={product.id}
-                      style={cardStyle}
-                    >
-                      {image ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={image}
-                          alt={product.name}
-                          style={{
-                            width: '100%',
-                            height: 190,
-                            objectFit: 'cover',
-                            borderRadius: 9,
-                          }}
-                        />
-                      ) : (
+                    return (
+                      <article
+                        key={product.id}
+                        style={cardStyle}
+                      >
+                        {image ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={image}
+                            alt={
+                              product.name
+                            }
+                            style={{
+                              width:
+                                '100%',
+                              height: 190,
+                              objectFit:
+                                'cover',
+                              borderRadius: 9,
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              height: 190,
+                              background:
+                                '#e9eefb',
+                              display:
+                                'grid',
+                              placeItems:
+                                'center',
+                              borderRadius: 9,
+                            }}
+                          >
+                            No Photo
+                          </div>
+                        )}
+
+                        <h3>
+                          {product.name}
+                        </h3>
+
+                        <p>
+                          {money(
+                            product.price
+                          )}
+                        </p>
+
+                        <p>
+                          {
+                            product.category
+                          }{' '}
+                          ·{' '}
+                          {product.size ||
+                            'No size'}
+                        </p>
+
+                        <p>
+                          {
+                            product.condition
+                          }
+                        </p>
+
+                        <label
+                          htmlFor={
+                            `status-` +
+                            product.id
+                          }
+                        >
+                          Status
+                        </label>
+
+                        <select
+                          id={
+                            `status-` +
+                            product.id
+                          }
+                          value={
+                            product.status
+                          }
+                          disabled={busy}
+                          onChange={(e) =>
+                            void updateProductStatus(
+                              product.id,
+                              e.target.value
+                            )
+                          }
+                          style={inputStyle}
+                        >
+                          <option value="available">
+                            Available
+                          </option>
+
+                          <option value="reserved">
+                            Reserved
+                          </option>
+
+                          <option value="sold">
+                            Sold
+                          </option>
+
+                          <option value="hidden">
+                            Hidden
+                          </option>
+                        </select>
+
                         <div
                           style={{
-                            height: 190,
-                            background: '#e9eefb',
-                            display: 'grid',
-                            placeItems: 'center',
-                            borderRadius: 9,
+                            display:
+                              'flex',
+                            gap: 8,
+                            flexWrap:
+                              'wrap',
                           }}
                         >
-                          No Photo
+                          <button
+                            type="button"
+                            style={
+                              secondaryStyle
+                            }
+                            onClick={() =>
+                              startEdit(
+                                product
+                              )
+                            }
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            style={{
+                              ...secondaryStyle,
+                              color:
+                                '#b91c1c',
+                            }}
+                            disabled={busy}
+                            onClick={() =>
+                              void deleteProduct(
+                                product
+                              )
+                            }
+                          >
+                            Delete
+                          </button>
                         </div>
-                      )}
-
-                      <h3>{product.name}</h3>
-                      <p>{money(product.price)}</p>
-                      <p>
-                        {product.category} ·{' '}
-                        {product.size || 'No size'}
-                      </p>
-                      <p>{product.condition}</p>
-
-                      <label
-                        htmlFor={`status-${product.id}`}
-                      >
-                        Status
-                      </label>
-
-                      <select
-                        id={`status-${product.id}`}
-                        value={product.status}
-                        onChange={(e) =>
-                          void updateProductStatus(
-                            product.id,
-                            e.target.value
-                          )
-                        }
-                        style={inputStyle}
-                      >
-                        <option value="available">
-                          Available
-                        </option>
-                        <option value="reserved">
-                          Reserved
-                        </option>
-                        <option value="sold">
-                          Sold
-                        </option>
-                        <option value="hidden">
-                          Hidden
-                        </option>
-                      </select>
-
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: 8,
-                        }}
-                      >
-                        <button
-                          type="button"
-                          style={secondaryStyle}
-                          onClick={() =>
-                            startEdit(product)
-                          }
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          style={{
-                            ...secondaryStyle,
-                            color: '#b91c1c',
-                          }}
-                          disabled={busy}
-                          onClick={() =>
-                            void deleteProduct(product)
-                          }
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
+                      </article>
+                    );
+                  }
+                )}
               </div>
             )}
           </section>
@@ -1306,18 +1687,26 @@ export default function Admin() {
 
         {tab === 'orders' && (
           <section>
-            <h2>Customer Orders ({orders.length})</h2>
+            <h2>
+              Customer Orders (
+              {orders.length})
+            </h2>
 
             <button
               type="button"
               style={secondaryStyle}
-              onClick={() => void loadData()}
+              onClick={() =>
+                void loadData()
+              }
             >
               Refresh Orders
             </button>
 
             {orders.length === 0 && (
-              <p>No orders have been placed yet.</p>
+              <p>
+                No orders have been
+                placed yet.
+              </p>
             )}
 
             <div
@@ -1328,48 +1717,89 @@ export default function Admin() {
               }}
             >
               {orders.map((order) => (
-                <article key={order.id} style={cardStyle}>
+                <article
+                  key={order.id}
+                  style={cardStyle}
+                >
                   <h3>
-                    Order #{order.id.slice(0, 8)}
+                    Order #
+                    {order.id.slice(
+                      0,
+                      8
+                    )}
                   </h3>
 
                   <p>
-                    <strong>Customer:</strong>{' '}
-                    {order.customer_name}
+                    <strong>
+                      Customer:
+                    </strong>{' '}
+                    {
+                      order.customer_name
+                    }
                   </p>
 
                   <p>
-                    <strong>Contact:</strong>{' '}
-                    {order.contact_number}
+                    <strong>
+                      Contact:
+                    </strong>{' '}
+                    {
+                      order.contact_number
+                    }
                   </p>
 
                   <p>
-                    <strong>Address:</strong>{' '}
-                    {order.delivery_address}
+                    <strong>
+                      Address:
+                    </strong>{' '}
+                    {
+                      order.delivery_address
+                    }
                   </p>
 
                   <p>
-                    <strong>Items:</strong>{' '}
-                    {displayItems(order.items)}
+                    <strong>
+                      Items:
+                    </strong>{' '}
+                    {displayItems(
+                      order.items
+                    )}
                   </p>
 
                   <p>
-                    <strong>Total:</strong>{' '}
-                    {money(order.total)}
+                    <strong>
+                      Total:
+                    </strong>{' '}
+                    {money(
+                      order.total
+                    )}
                   </p>
 
                   <p>
-                    <strong>Date:</strong>{' '}
-                    {dateText(order.created_at)}
+                    <strong>
+                      Date:
+                    </strong>{' '}
+                    {dateText(
+                      order.created_at
+                    )}
                   </p>
 
-                  <label htmlFor={`order-${order.id}`}>
+                  <label
+                    htmlFor={
+                      `order-` +
+                      order.id
+                    }
+                  >
                     Order Status
                   </label>
 
                   <select
-                    id={`order-${order.id}`}
-                    value={order.status}
+                    id={
+                      `order-` +
+                      order.id
+                    }
+                    value={
+                      order.status
+                    }
                     disabled={busy}
                     onChange={(e) =>
                       void updateOrderStatus(
@@ -1382,18 +1812,23 @@ export default function Admin() {
                     <option value="pending">
                       Pending
                     </option>
+
                     <option value="confirmed">
                       Confirmed
                     </option>
+
                     <option value="packed">
                       Packed
                     </option>
+
                     <option value="shipped">
                       Shipped
                     </option>
+
                     <option value="completed">
                       Completed
                     </option>
+
                     <option value="cancelled">
                       Cancelled
                     </option>
@@ -1406,24 +1841,37 @@ export default function Admin() {
 
         {tab === 'offers' && (
           <section>
-            <h2>Customer Offers ({offers.length})</h2>
+            <h2>
+              Customer Offers (
+              {offers.length})
+            </h2>
 
-            <p style={{ color: '#64748b' }}>
-              Offers submitted through Supabase will
-              appear here. Facebook messages are not
-              automatically recorded.
+            <p
+              style={{
+                color: '#64748b',
+              }}
+            >
+              Offers submitted through
+              Supabase appear here.
+              Facebook messages are
+              not automatically recorded.
             </p>
 
             <button
               type="button"
               style={secondaryStyle}
-              onClick={() => void loadData()}
+              onClick={() =>
+                void loadData()
+              }
             >
               Refresh Offers
             </button>
 
             {offers.length === 0 && (
-              <p>No offers have been submitted yet.</p>
+              <p>
+                No offers have been
+                submitted yet.
+              </p>
             )}
 
             <div
@@ -1434,9 +1882,12 @@ export default function Admin() {
               }}
             >
               {offers.map((offer) => {
-                const product = products.find(
-                  (p) => p.id === offer.product_id
-                );
+                const product =
+                  products.find(
+                    (p) =>
+                      p.id ===
+                      offer.product_id
+                  );
 
                 return (
                   <article
@@ -1444,52 +1895,76 @@ export default function Admin() {
                     style={cardStyle}
                   >
                     <h3>
-                      {product?.name || 'Product'}
+                      {product?.name ||
+                        'Product'}
                     </h3>
 
                     <p>
-                      <strong>Listed Price:</strong>{' '}
+                      <strong>
+                        Listed Price:
+                      </strong>{' '}
                       {product
-                        ? money(product.price)
+                        ? money(
+                            product.price
+                          )
                         : 'Unavailable'}
                     </p>
 
                     <p>
-                      <strong>Customer Offer:</strong>{' '}
-                      {money(offer.offer_amount)}
+                      <strong>
+                        Customer Offer:
+                      </strong>{' '}
+                      {money(
+                        offer.offer_amount
+                      )}
                     </p>
 
                     <p>
-                      <strong>Status:</strong>{' '}
+                      <strong>
+                        Status:
+                      </strong>{' '}
                       {offer.status}
                     </p>
 
                     <p>
-                      <strong>Date:</strong>{' '}
-                      {dateText(offer.created_at)}
+                      <strong>
+                        Date:
+                      </strong>{' '}
+                      {dateText(
+                        offer.created_at
+                      )}
                     </p>
 
                     <p
                       style={{
                         fontSize: 12,
-                        overflowWrap: 'anywhere',
+                        overflowWrap:
+                          'anywhere',
                       }}
                     >
-                      Customer ID: {offer.customer_id}
+                      Customer ID:{' '}
+                      {
+                        offer.customer_id
+                      }
                     </p>
 
-                    {offer.status === 'pending' && (
+                    {offer.status ===
+                      'pending' && (
                       <div
                         style={{
-                          display: 'flex',
+                          display:
+                            'flex',
                           gap: 10,
-                          flexWrap: 'wrap',
+                          flexWrap:
+                            'wrap',
                         }}
                       >
                         <button
                           type="button"
                           disabled={busy}
-                          style={buttonStyle}
+                          style={
+                            buttonStyle
+                          }
                           onClick={() =>
                             void updateOfferStatus(
                               offer.id,
@@ -1503,7 +1978,9 @@ export default function Admin() {
                         <button
                           type="button"
                           disabled={busy}
-                          style={secondaryStyle}
+                          style={
+                            secondaryStyle
+                          }
                           onClick={() =>
                             void updateOfferStatus(
                               offer.id,
@@ -1524,13 +2001,19 @@ export default function Admin() {
 
         {tab === 'contact' && (
           <section>
-            <h2>Seller Contact</h2>
+            <h2>
+              Seller Contact
+            </h2>
 
             <div style={cardStyle}>
-              <h3>TalkThrift Social Accounts</h3>
+              <h3>
+                TalkThrift Social Accounts
+              </h3>
 
               <p>
-                <strong>Facebook:</strong>{' '}
+                <strong>
+                  Facebook:
+                </strong>{' '}
                 <a
                   href={FACEBOOK}
                   target="_blank"
@@ -1541,7 +2024,9 @@ export default function Admin() {
               </p>
 
               <p>
-                <strong>Instagram:</strong>{' '}
+                <strong>
+                  Instagram:
+                </strong>{' '}
                 <a
                   href={INSTAGRAM}
                   target="_blank"
@@ -1551,11 +2036,14 @@ export default function Admin() {
                 </a>
               </p>
 
-              <p style={{ color: '#64748b' }}>
-                These are your current seller contact
-                links. To change them, update the
-                contact constants in this file and
-                the product details page.
+              <p
+                style={{
+                  color: '#64748b',
+                }}
+              >
+                These contact links are
+                currently set in the
+                website code.
               </p>
             </div>
 
@@ -1565,19 +2053,30 @@ export default function Admin() {
                 marginTop: 16,
               }}
             >
-              <h3>Delivery Information</h3>
+              <h3>
+                Delivery Information
+              </h3>
 
-              <p>Luzon — ₱89</p>
-              <p>Visayas — ₱89</p>
-              <p>Mindanao — ₱69</p>
-              <p>Meetup in Pagadian City — Free</p>
               <p>
-                Local Pagadian delivery — Starts at ₱30
+                Luzon — ₱89
               </p>
 
-              <p style={{ color: '#64748b' }}>
-                These rates are currently displayed
-                in your product details page.
+              <p>
+                Visayas — ₱89
+              </p>
+
+              <p>
+                Mindanao — ₱69
+              </p>
+
+              <p>
+                Meetup in Pagadian City
+                — Free
+              </p>
+
+              <p>
+                Local Pagadian delivery
+                — Starts at ₱30
               </p>
             </div>
           </section>
