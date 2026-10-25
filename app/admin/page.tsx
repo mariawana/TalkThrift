@@ -1,8 +1,9 @@
 
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { supabase, supabaseConfigCheck } from '@/lib/supabase';
+import type { Session } from '@supabase/supabase-js';
 
 type Product = {
   id: string;
@@ -18,134 +19,312 @@ type Product = {
   created_at?: string;
 };
 
-const MAX_TOTAL_PHOTO_BYTES = 50 * 1024 * 1024;
+type Order = {
+  id: string;
+  customer_id: string;
+  customer_name: string;
+  contact_number: string;
+  delivery_address: string;
+  items: unknown;
+  total: number;
+  status: string;
+  created_at: string;
+};
+
+type Offer = {
+  id: string;
+  product_id: string;
+  customer_id: string;
+  offer_amount: number;
+  status: string;
+  created_at: string;
+};
+
+type Tab = 'overview' | 'products' | 'orders' | 'offers' | 'contact';
+
 const BUCKET = 'product-photos';
+const MAX_TOTAL_PHOTO_BYTES = 50 * 1024 * 1024;
+
+const FACEBOOK = 'https://www.facebook.com/kilme.rudy';
+const INSTAGRAM = 'https://www.instagram.com/talkthriftwhsorudy/';
+
+const initialForm = {
+  name: '',
+  category: 'Tops',
+  size: '',
+  condition: 'Very good',
+  price: '',
+  description: '',
+  status: 'available',
+};
+
+const inputStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  boxSizing: 'border-box',
+  padding: 12,
+  margin: '7px 0 16px',
+  border: '1px solid #cbd5e1',
+  borderRadius: 9,
+  fontSize: 14,
+  background: '#fff',
+  color: '#172554',
+};
+
+const cardStyle: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #dbe3f0',
+  borderRadius: 16,
+  padding: 18,
+};
+
+const buttonStyle: React.CSSProperties = {
+  border: 0,
+  borderRadius: 9,
+  padding: '11px 16px',
+  background: '#233fbd',
+  color: '#fff',
+  fontWeight: 600,
+  cursor: 'pointer',
+};
+
+const secondaryStyle: React.CSSProperties = {
+  ...buttonStyle,
+  background: '#e9eefb',
+  color: '#233fbd',
+};
+
+const money = (amount: number) =>
+  `₱${Number(amount).toLocaleString('en-PH', {
+    maximumFractionDigits: 2,
+  })}`;
+
+const dateText = (value: string) =>
+  new Date(value).toLocaleString('en-PH', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+
+const formatBytes = (bytes: number) =>
+  `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+
+function displayItems(items: unknown): string {
+  if (typeof items === 'string') {
+    try {
+      return displayItems(JSON.parse(items));
+    } catch {
+      return items;
+    }
+  }
+
+  if (Array.isArray(items)) {
+    return items.map((item) => {
+      if (typeof item === 'string') return item;
+
+      if (item && typeof item === 'object') {
+        const entry = item as Record<string, unknown>;
+        const name = String(entry.name ?? entry.title ?? 'Item');
+        const quantity = Number(entry.quantity ?? 1);
+        return `${name} × ${quantity}`;
+      }
+
+      return String(item);
+    }).join(', ');
+  }
+
+  if (items && typeof items === 'object') {
+    return JSON.stringify(items);
+  }
+
+  return 'No item details';
+}
 
 export default function Admin() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [session, setSession] = useState<any>(null);
+
+  const [tab, setTab] = useState<Tab>('overview');
   const [products, setProducts] = useState<Product[]>([]);
-  const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
+
+  const [form, setForm] = useState(initialForm);
   const [photos, setPhotos] = useState<File[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [form, setForm] = useState({
-    name: '',
-    category: 'Tops',
-    size: '',
-    condition: 'Very good',
-    price: '',
-    description: '',
-    status: 'available',
-  });
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const totalPhotoBytes = photos.reduce(
     (sum, photo) => sum + photo.size,
     0
   );
 
-  const formatBytes = (bytes: number) =>
-    `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!supabase) return;
 
-    let mounted = true;
+    const [productResult, orderResult, offerResult] =
+      await Promise.all([
+        supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false }),
 
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!mounted) return;
+        supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false }),
 
-      if (error) {
-        setMessage(error.message);
+        supabase
+          .from('offers')
+          .select('*')
+          .order('created_at', { ascending: false }),
+      ]);
+
+    if (productResult.error) {
+      setMessage(`Products: ${productResult.error.message}`);
+    } else {
+      setProducts((productResult.data ?? []) as Product[]);
+    }
+
+    if (orderResult.error) {
+      setMessage(`Orders: ${orderResult.error.message}`);
+    } else {
+      setOrders((orderResult.data ?? []) as Order[]);
+    }
+
+    if (offerResult.error) {
+      setMessage(`Offers: ${offerResult.error.message}`);
+    } else {
+      setOffers((offerResult.data ?? []) as Offer[]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+      setChecking(false);
+      return;
+    }
+
+    const client = supabase;
+    let active = true;
+
+    async function checkAccount(nextSession: Session | null) {
+      if (!active) return;
+
+      setChecking(true);
+      setSession(nextSession);
+      setIsOwner(false);
+
+      if (!nextSession) {
+        setChecking(false);
         return;
       }
 
-      setSession(data.session);
+      const { data, error } = await client
+        .from('profiles')
+        .select('role')
+        .eq('id', nextSession.user.id)
+        .maybeSingle();
+
+      if (!active) return;
+
+      if (error) {
+        setMessage(`Account check failed: ${error.message}`);
+      }
+
+      const owner = !error && data?.role === 'owner';
+
+      setIsOwner(owner);
+      setChecking(false);
+
+      if (owner) {
+        void loadData();
+      }
+    }
+
+    void client.auth.getSession().then(({ data, error }) => {
+      if (!active) return;
+
+      if (error) {
+        setMessage(error.message);
+        setChecking(false);
+        return;
+      }
+
+      void checkAccount(data.session);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (mounted) setSession(newSession);
+    } = client.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) {
+        // Avoid running Supabase requests synchronously
+        // inside the auth callback.
+        setTimeout(() => {
+          if (active) void checkAccount(nextSession);
+        }, 0);
+      }
     });
 
     return () => {
-      mounted = false;
+      active = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadData]);
 
-  const load = async () => {
-    if (!supabase) return;
-
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      setMessage(`Unable to load products: ${error.message}`);
-    } else {
-      setProducts((data || []) as Product[]);
-    }
-  };
-
-  useEffect(() => {
-    if (session) void load();
-  }, [session]);
-
-  const login = async (e: FormEvent<HTMLFormElement>) => {
+  async function login(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!supabase) {
-      setMessage('Supabase is not configured.');
-      return;
-    }
+    if (!supabase) return;
 
     setBusy(true);
     setMessage('');
 
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-      if (error) {
-        setMessage(error.message);
-      } else {
-        setMessage('Logged in successfully.');
-      }
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? `Login failed: ${error.message}`
-          : 'Unable to sign in. Please try again.'
-      );
-    } finally {
-      setBusy(false);
+    if (error) setMessage(error.message);
+
+    setBusy(false);
+  }
+
+  async function logout() {
+    if (!supabase) return;
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setSession(null);
+      setIsOwner(false);
+      setProducts([]);
+      setOrders([]);
+      setOffers([]);
+      resetForm();
     }
-  };
+  }
 
-  const choosePhotos = (files: FileList | null) => {
+  function choosePhotos(files: FileList | null) {
     if (!files) return;
 
     const selected = Array.from(files);
 
-    const invalid = selected.find(
-      (file) => !file.type.startsWith('image/')
-    );
-
-    if (invalid) {
+    if (selected.some((file) => !file.type.startsWith('image/'))) {
       setMessage('Please select image files only.');
       return;
     }
 
     const combined = [...photos, ...selected];
 
-    const uniqueFiles = combined.filter(
+    const unique = combined.filter(
       (file, index, array) =>
         array.findIndex(
           (other) =>
@@ -155,40 +334,22 @@ export default function Admin() {
         ) === index
     );
 
-    const total = uniqueFiles.reduce(
+    const total = unique.reduce(
       (sum, file) => sum + file.size,
       0
     );
 
     if (total > MAX_TOTAL_PHOTO_BYTES) {
-      setMessage(
-        'The combined photo size exceeds 50 MB. Remove some photos or choose smaller files.'
-      );
+      setMessage('Combined photos must be 50 MB or less.');
       return;
     }
 
-    setPhotos(uniqueFiles);
-    setMessage(`${uniqueFiles.length} photo(s) selected.`);
-  };
+    setPhotos(unique);
+    setMessage(`${unique.length} photo(s) selected.`);
+  }
 
-  const removePhoto = (indexToRemove: number) => {
-    setPhotos((current) =>
-      current.filter((_, index) => index !== indexToRemove)
-    );
-    setMessage('Photo removed from selection.');
-  };
-
-  const resetForm = () => {
-    setForm({
-      name: '',
-      category: 'Tops',
-      size: '',
-      condition: 'Very good',
-      price: '',
-      description: '',
-      status: 'available',
-    });
-
+  function resetForm() {
+    setForm({ ...initialForm });
     setPhotos([]);
     setEditingId(null);
 
@@ -197,18 +358,23 @@ export default function Admin() {
     ) as HTMLInputElement | null;
 
     if (input) input.value = '';
-  };
+  }
 
-  const saveProduct = async (e: FormEvent<HTMLFormElement>) => {
+  async function saveProduct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    if (!supabase || !session?.user) {
-      setMessage('Please log in first.');
+    if (!supabase || !session?.user || !isOwner) {
+      setMessage('Owner access is required.');
       return;
     }
 
-    if (!form.name.trim() || !form.price || Number(form.price) < 0) {
-      setMessage('Enter a product name and valid price.');
+    if (
+      !form.name.trim() ||
+      form.price.trim() === '' ||
+      !Number.isFinite(Number(form.price)) ||
+      Number(form.price) < 0
+    ) {
+      setMessage('Enter a valid product name and price.');
       return;
     }
 
@@ -224,10 +390,15 @@ export default function Admin() {
       const imageUrls: string[] = [];
 
       for (const photo of photos) {
-        const safeName = photo.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const path = `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
+        const safeName = photo.name.replace(
+          /[^a-zA-Z0-9._-]/g,
+          '_'
+        );
 
-        const { error: uploadError } = await supabase.storage
+        const path =
+          `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
+
+        const { error } = await supabase.storage
           .from(BUCKET)
           .upload(path, photo, {
             cacheControl: '3600',
@@ -235,8 +406,8 @@ export default function Admin() {
             contentType: photo.type,
           });
 
-        if (uploadError) {
-          throw new Error(`Photo upload failed: ${uploadError.message}`);
+        if (error) {
+          throw new Error(`Photo upload failed: ${error.message}`);
         }
 
         const { data } = supabase.storage
@@ -257,11 +428,12 @@ export default function Admin() {
       };
 
       if (editingId) {
-        const { data: oldProduct, error: readError } = await supabase
-          .from('products')
-          .select('image_urls, image_url')
-          .eq('id', editingId)
-          .single();
+        const { data: oldProduct, error: readError } =
+          await supabase
+            .from('products')
+            .select('image_urls, image_url')
+            .eq('id', editingId)
+            .single();
 
         if (readError) throw readError;
 
@@ -272,7 +444,9 @@ export default function Admin() {
               ? [oldProduct.image_url]
               : [];
 
-        const allUrls = [...oldUrls, ...imageUrls];
+        const allUrls = Array.from(
+          new Set([...oldUrls, ...imageUrls])
+        );
 
         const { error } = await supabase
           .from('products')
@@ -284,33 +458,38 @@ export default function Admin() {
           .eq('id', editingId);
 
         if (error) throw error;
+
         setMessage('Product updated successfully.');
       } else {
-        const { error } = await supabase.from('products').insert({
-          ...productData,
-          image_urls: imageUrls,
-          image_url: imageUrls[0] || null,
-        });
+        const { error } = await supabase
+          .from('products')
+          .insert({
+            ...productData,
+            image_urls: imageUrls,
+            image_url: imageUrls[0] || null,
+          });
 
         if (error) throw error;
+
         setMessage('Product added successfully.');
       }
 
       resetForm();
-      await load();
+      await loadData();
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : 'Something went wrong while saving the product.'
+          : 'Unable to save product.'
       );
     } finally {
       setBusy(false);
     }
-  };
+  }
 
-  const startEdit = (product: Product) => {
+  function startEdit(product: Product) {
     setEditingId(product.id);
+
     setForm({
       name: product.name,
       category: product.category || 'Tops',
@@ -320,91 +499,163 @@ export default function Admin() {
       description: product.description || '',
       status: product.status || 'available',
     });
+
     setPhotos([]);
+    setTab('products');
+
     setMessage(
-      'Editing product. Existing photos will be kept; selected photos will be added.'
+      'Editing product. Existing photos will be kept.'
     );
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }
 
-  const updateStatus = async (
+  async function updateProductStatus(
     productId: string,
     status: string
-  ) => {
-    if (!supabase) return;
+  ) {
+    if (!supabase || !isOwner) return;
 
-    setMessage('');
     const { error } = await supabase
       .from('products')
       .update({ status })
       .eq('id', productId);
 
-    if (error) {
-      setMessage(`Status update failed: ${error.message}`);
-    } else {
-      setMessage('Product status updated.');
-      await load();
-    }
-  };
-
-  const deleteProduct = async (product: Product) => {
-    if (!supabase) return;
-
-    const confirmed = window.confirm(
-      `Delete "${product.name}"? This cannot be undone.`
+    setMessage(
+      error
+        ? `Status update failed: ${error.message}`
+        : 'Product status updated.'
     );
 
-    if (!confirmed) return;
+    if (!error) await loadData();
+  }
+
+  async function deleteProduct(product: Product) {
+    if (!supabase || !isOwner) return;
+
+    if (
+      !window.confirm(
+        `Delete "${product.name}"? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
 
     setBusy(true);
-    setMessage('');
 
-    try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', product.id);
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', product.id);
 
-      if (error) throw error;
+    setMessage(
+      error
+        ? `Delete failed: ${error.message}`
+        : 'Product deleted.'
+    );
 
-      setMessage('Product deleted.');
-      await load();
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? `Delete failed: ${error.message}`
-          : 'Unable to delete product.'
-      );
-    } finally {
-      setBusy(false);
+    if (!error) {
+      if (editingId === product.id) resetForm();
+      await loadData();
     }
-  };
 
-  const logout = async () => {
-    if (!supabase) return;
+    setBusy(false);
+  }
 
-    const { error } = await supabase.auth.signOut();
+  async function updateOrderStatus(
+    orderId: string,
+    status: string
+  ) {
+    if (!supabase || !isOwner) return;
 
-    setMessage(error ? error.message : 'Logged out.');
-    resetForm();
-  };
+    setBusy(true);
+
+    const { error } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', orderId);
+
+    setMessage(
+      error
+        ? `Order update failed: ${error.message}`
+        : 'Order status updated.'
+    );
+
+    if (!error) await loadData();
+
+    setBusy(false);
+  }
+
+  async function updateOfferStatus(
+    offerId: string,
+    status: 'accepted' | 'rejected'
+  ) {
+    if (!supabase || !isOwner) return;
+
+    setBusy(true);
+
+    const { error } = await supabase
+      .from('offers')
+      .update({ status })
+      .eq('id', offerId)
+      .eq('status', 'pending')
+      .select('id');
+
+    if (error.error) {
+      setMessage(`Offer update failed: ${error.error.message}`);
+    } else if (!error.data?.length) {
+      setMessage('Offer was already updated. Refresh and try again.');
+    } else {
+      setMessage(`Offer ${status}.`);
+      await loadData();
+    }
+
+    setBusy(false);
+  }
+
+  const availableCount = products.filter(
+    (p) => p.status === 'available'
+  ).length;
+
+  const pendingOrders = orders.filter(
+    (o) => o.status === 'pending'
+  ).length;
+
+  const pendingOffers = offers.filter(
+    (o) => o.status === 'pending'
+  ).length;
 
   if (!supabase) {
     return (
       <main style={{ padding: 24 }}>
-        <h1>Talk Thrift Admin</h1>
-        <p>Supabase is not configured. Check your Vercel environment variables.</p>
-        <pre>{JSON.stringify(supabaseConfigCheck, null, 2)}</pre>
+        <h1>TalkThrift Admin</h1>
+        <p>Supabase is not configured.</p>
+        <pre>
+          {JSON.stringify(supabaseConfigCheck, null, 2)}
+        </pre>
+      </main>
+    );
+  }
+
+  if (checking) {
+    return (
+      <main style={{ padding: 30 }}>
+        Checking your TalkThrift account...
       </main>
     );
   }
 
   if (!session) {
     return (
-      <main style={{ maxWidth: 420, margin: '40px auto', padding: 20 }}>
-        <h1>Talk Thrift Admin</h1>
-        <p>Log in to manage your thrift products.</p>
+      <main
+        style={{
+          maxWidth: 420,
+          margin: '50px auto',
+          padding: 24,
+        }}
+      >
+        <h1>TalkThrift Seller Login</h1>
+        <p>Sign in with your owner account.</p>
 
         <form onSubmit={login}>
           <label htmlFor="admin-email">Email</label>
@@ -414,7 +665,7 @@ export default function Admin() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            style={{ display: 'block', width: '100%', margin: '8px 0 16px', padding: 10 }}
+            style={inputStyle}
           />
 
           <label htmlFor="admin-password">Password</label>
@@ -424,342 +675,914 @@ export default function Admin() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={{ display: 'block', width: '100%', margin: '8px 0 16px', padding: 10 }}
+            style={inputStyle}
           />
 
-          <button type="submit" disabled={busy}>
-            {busy ? 'Logging in...' : 'Log in'}
+          <button
+            type="submit"
+            disabled={busy}
+            style={buttonStyle}
+          >
+            {busy ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
 
-        {message && <p>{message}</p>}
+        {message && <p role="status">{message}</p>}
       </main>
     );
   }
 
+  if (!isOwner) {
+    return (
+      <main
+        style={{
+          maxWidth: 500,
+          margin: '50px auto',
+          padding: 24,
+        }}
+      >
+        <h1>Owner Access Required</h1>
+
+        <p>
+          This account does not have permission to access
+          the TalkThrift Seller Dashboard.
+        </p>
+
+        <p>
+          Your account must have the owner role in Supabase.
+        </p>
+
+        {message && <p role="status">{message}</p>}
+
+        <button
+          type="button"
+          onClick={logout}
+          style={buttonStyle}
+        >
+          Log Out
+        </button>
+      </main>
+    );
+  }
+
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'products', label: 'Products' },
+    { id: 'orders', label: 'Orders' },
+    { id: 'offers', label: 'Offers' },
+    { id: 'contact', label: 'Seller Contact' },
+  ];
 
   return (
-    <main style={{ maxWidth: 900, margin: '24px auto', padding: 16 }}>
-      <header
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-        }}
-      >
-        <div>
-          <h1>Talk Thrift Admin</h1>
-          <p>Manage your thrift products.</p>
-        </div>
-        <button type="button" onClick={logout}>
-          Log out
-        </button>
-      </header>
-
-      {message && (
-        <p
-          role="status"
+    <main
+      style={{
+        minHeight: '100vh',
+        background: '#f6f8fc',
+        color: '#172554',
+        padding: '22px 16px 60px',
+      }}
+    >
+      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+        <header
           style={{
-            padding: 12,
-            background: '#f1f5f9',
-            color: '#172554',
-            borderRadius: 8,
-            overflowWrap: 'anywhere',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
+            marginBottom: 24,
           }}
         >
-          {message}
-        </p>
-      )}
+          <div>
+            <p style={{ color: '#4762c6', fontWeight: 700 }}>
+              TALKTHRIFT
+            </p>
 
-      <section
-        style={{
-          border: '1px solid #d1d5db',
-          borderRadius: 12,
-          padding: 16,
-          marginTop: 20,
-        }}
-      >
-        <h2>{editingId ? 'Edit Product' : 'Add New Product'}</h2>
+            <h1 style={{ margin: '4px 0' }}>
+              Seller Dashboard
+            </h1>
 
-        <form onSubmit={saveProduct}>
-          <label htmlFor="product-name">Product name</label>
-          <input
-            id="product-name"
-            value={form.name}
-            onChange={(e) =>
-              setForm({ ...form, name: e.target.value })
-            }
-            required
-            style={fieldStyle}
-          />
+            <p style={{ color: '#64748b' }}>
+              Manage your thrift store in one place.
+            </p>
+          </div>
 
-          <label htmlFor="product-category">Category</label>
-          <select
-            id="product-category"
-            value={form.category}
-            onChange={(e) =>
-              setForm({ ...form, category: e.target.value })
-            }
-            style={fieldStyle}
+          <button
+            type="button"
+            onClick={logout}
+            style={secondaryStyle}
           >
-            <option>Tops</option>
-            <option>Bottoms</option>
-            <option>Dresses</option>
-            <option>Outerwear</option>
-            <option>Shoes</option>
-            <option>Bags</option>
-            <option>Accessories</option>
-            <option>Others</option>
-          </select>
+            Log Out
+          </button>
+        </header>
 
-          <label htmlFor="product-size">Size</label>
-          <input
-            id="product-size"
-            value={form.size}
-            onChange={(e) =>
-              setForm({ ...form, size: e.target.value })
-            }
-            placeholder="e.g. M, L, 28"
-            style={fieldStyle}
-          />
+        <nav
+          aria-label="Dashboard sections"
+          style={{
+            display: 'flex',
+            gap: 9,
+            overflowX: 'auto',
+            paddingBottom: 12,
+            marginBottom: 18,
+          }}
+        >
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setTab(item.id);
+                setMessage('');
+              }}
+              style={{
+                ...(tab === item.id
+                  ? buttonStyle
+                  : secondaryStyle),
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
 
-          <label htmlFor="product-condition">Condition</label>
-          <select
-            id="product-condition"
-            value={form.condition}
-            onChange={(e) =>
-              setForm({ ...form, condition: e.target.value })
-            }
-            style={fieldStyle}
+        {message && (
+          <p
+            role="status"
+            style={{
+              padding: 14,
+              borderRadius: 10,
+              background: '#e9eefb',
+              overflowWrap: 'anywhere',
+              marginBottom: 18,
+            }}
           >
-            <option>Brand new</option>
-            <option>Like new</option>
-            <option>Very good</option>
-            <option>Good</option>
-            <option>Fair</option>
-          </select>
-
-          <label htmlFor="product-price">Price (₱)</label>
-          <input
-            id="product-price"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.price}
-            onChange={(e) =>
-              setForm({ ...form, price: e.target.value })
-            }
-            required
-            style={fieldStyle}
-          />
-
-          <label htmlFor="product-description">Description</label>
-          <textarea
-            id="product-description"
-            value={form.description}
-            onChange={(e) =>
-              setForm({ ...form, description: e.target.value })
-            }
-            rows={4}
-            style={fieldStyle}
-          />
-
-          <label htmlFor="product-status">Status</label>
-          <select
-            id="product-status"
-            value={form.status}
-            onChange={(e) =>
-              setForm({ ...form, status: e.target.value })
-            }
-            style={fieldStyle}
-          >
-            <option value="available">Available</option>
-            <option value="reserved">Reserved</option>
-            <option value="sold">Sold</option>
-          </select>
-
-          <label htmlFor="product-photos">
-            Product photos {editingId ? '(optional: add more)' : ''}
-          </label>
-          <input
-            id="product-photos"
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={(e) => choosePhotos(e.target.files)}
-            style={{ display: 'block', width: '100%', margin: '10px 0' }}
-          />
-
-          <p>
-            Selected: {photos.length} photo(s) · {formatBytes(totalPhotoBytes)} / 50 MB
+            {message}
           </p>
-          <p>
-            You can select photos in batches. The combined size must not exceed 50 MB.
-          </p>
+        )}
 
-          {photos.length > 0 && (
+        {tab === 'overview' && (
+          <section>
+            <h2>Store Overview</h2>
+
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
-                gap: 10,
-                margin: '12px 0',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(170px, 1fr))',
+                gap: 14,
               }}
             >
-              {photos.map((photo, index) => (
-                <div key={`${photo.name}-${photo.lastModified}-${index}`}>
-                  <img
-                    src={URL.createObjectURL(photo)}
-                    alt={photo.name}
-                    style={{
-                      width: '100%',
-                      height: 110,
-                      objectFit: 'cover',
-                      borderRadius: 8,
-                    }}
-                  />
-                  <p style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
-                    {photo.name}
+              {[
+                ['Total Products', products.length],
+                ['Available Items', availableCount],
+                ['Total Orders', orders.length],
+                ['Pending Orders', pendingOrders],
+                ['Pending Offers', pendingOffers],
+              ].map(([label, value]) => (
+                <div key={String(label)} style={cardStyle}>
+                  <p style={{ color: '#64748b' }}>
+                    {label}
                   </p>
-                  <p style={{ fontSize: 12 }}>{formatBytes(photo.size)}</p>
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(index)}
+
+                  <h2
+                    style={{
+                      fontSize: 32,
+                      margin: '8px 0',
+                      color: '#233fbd',
+                    }}
                   >
-                    Remove
-                  </button>
+                    {value}
+                  </h2>
                 </div>
               ))}
             </div>
-          )}
 
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
-            <button type="submit" disabled={busy}>
-              {busy
-                ? 'Saving...'
-                : editingId
-                  ? 'Save Changes'
-                  : 'Add Product'}
-            </button>
+            <div style={{ ...cardStyle, marginTop: 22 }}>
+              <h2>Quick Actions</h2>
 
-            {editingId && (
-              <button type="button" onClick={resetForm}>
-                Cancel Edit
-              </button>
-            )}
-          </div>
-        </form>
-      </section>
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 10,
+                }}
+              >
+                <button
+                  type="button"
+                  style={buttonStyle}
+                  onClick={() => setTab('products')}
+                >
+                  Manage Products
+                </button>
 
-      <section style={{ marginTop: 28 }}>
-        <h2>Your Products ({products.length})</h2>
+                <button
+                  type="button"
+                  style={secondaryStyle}
+                  onClick={() => setTab('orders')}
+                >
+                  View Orders
+                </button>
 
-        {products.length === 0 ? (
-          <p>No products yet. Add your first thrift item above.</p>
-        ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-              gap: 16,
-            }}
-          >
-            {products.map((product) => {
-              const images =
-                product.image_urls?.length
-                  ? product.image_urls
-                  : product.image_url
-                    ? [product.image_url]
-                    : [];
+                <button
+                  type="button"
+                  style={secondaryStyle}
+                  onClick={() => setTab('offers')}
+                >
+                  Review Offers
+                </button>
 
-              return (
-                <article
-                  key={product.id}
+                <button
+                  type="button"
+                  style={secondaryStyle}
+                  onClick={() => void loadData()}
+                >
+                  Refresh Data
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {tab === 'products' && (
+          <section>
+            <div style={cardStyle}>
+              <h2>
+                {editingId
+                  ? 'Edit Product'
+                  : 'Add New Product'}
+              </h2>
+
+              <form onSubmit={saveProduct}>
+                <label htmlFor="product-name">
+                  Product Name
+                </label>
+
+                <input
+                  id="product-name"
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      name: e.target.value,
+                    })
+                  }
+                  required
+                  style={inputStyle}
+                />
+
+                <label htmlFor="product-category">
+                  Category
+                </label>
+
+                <select
+                  id="product-category"
+                  value={form.category}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      category: e.target.value,
+                    })
+                  }
+                  style={inputStyle}
+                >
+                  {[
+                    'Tops',
+                    'Bottoms',
+                    'Dresses',
+                    'Outerwear',
+                    'Shoes',
+                    'Bags',
+                    'Accessories',
+                    'Others',
+                  ].map((category) => (
+                    <option key={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+
+                <label htmlFor="product-size">
+                  Size
+                </label>
+
+                <input
+                  id="product-size"
+                  value={form.size}
+                  placeholder="e.g. M, L, 28"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      size: e.target.value,
+                    })
+                  }
+                  style={inputStyle}
+                />
+
+                <label htmlFor="product-condition">
+                  Condition
+                </label>
+
+                <select
+                  id="product-condition"
+                  value={form.condition}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      condition: e.target.value,
+                    })
+                  }
+                  style={inputStyle}
+                >
+                  {[
+                    'Brand new',
+                    'Like new',
+                    'Very good',
+                    'Good',
+                    'Fair',
+                  ].map((condition) => (
+                    <option key={condition}>
+                      {condition}
+                    </option>
+                  ))}
+                </select>
+
+                <label htmlFor="product-price">
+                  Price (₱)
+                </label>
+
+                <input
+                  id="product-price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.price}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      price: e.target.value,
+                    })
+                  }
+                  required
+                  style={inputStyle}
+                />
+
+                <label htmlFor="product-description">
+                  Description
+                </label>
+
+                <textarea
+                  id="product-description"
+                  rows={4}
+                  value={form.description}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      description: e.target.value,
+                    })
+                  }
+                  style={inputStyle}
+                />
+
+                <label htmlFor="product-status">
+                  Status
+                </label>
+
+                <select
+                  id="product-status"
+                  value={form.status}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      status: e.target.value,
+                    })
+                  }
+                  style={inputStyle}
+                >
+                  <option value="available">
+                    Available
+                  </option>
+                  <option value="reserved">
+                    Reserved
+                  </option>
+                  <option value="sold">
+                    Sold
+                  </option>
+                  <option value="hidden">
+                    Hidden
+                  </option>
+                </select>
+
+                <label htmlFor="product-photos">
+                  Product Photos
+                  {editingId ? ' (add more photos)' : ''}
+                </label>
+
+                <input
+                  id="product-photos"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) =>
+                    choosePhotos(e.target.files)
+                  }
+                  style={inputStyle}
+                />
+
+                <p>
+                  {photos.length} selected ·{' '}
+                  {formatBytes(totalPhotoBytes)} / 50 MB
+                </p>
+
+                {photos.length > 0 && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: 12,
+                      flexWrap: 'wrap',
+                      marginBottom: 16,
+                    }}
+                  >
+                    {photos.map((photo, index) => (
+                      <div
+                        key={`${photo.name}-${index}`}
+                        style={{
+                          border: '1px solid #dbe3f0',
+                          padding: 10,
+                          borderRadius: 9,
+                          maxWidth: 180,
+                        }}
+                      >
+                        <p
+                          style={{
+                            fontSize: 12,
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {photo.name}
+                        </p>
+
+                        <p style={{ fontSize: 12 }}>
+                          {formatBytes(photo.size)}
+                        </p>
+
+                        <button
+                          type="button"
+                          style={secondaryStyle}
+                          onClick={() =>
+                            setPhotos((current) =>
+                              current.filter(
+                                (_, i) => i !== index
+                              )
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div
                   style={{
-                    border: '1px solid #d1d5db',
-                    borderRadius: 12,
-                    padding: 12,
-                    minWidth: 0,
+                    display: 'flex',
+                    gap: 10,
+                    flexWrap: 'wrap',
                   }}
                 >
-                  {images.length > 0 ? (
-                    <img
-                      src={images[0]}
-                      alt={product.name}
-                      style={{
-                        width: '100%',
-                        height: 190,
-                        objectFit: 'cover',
-                        borderRadius: 8,
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        height: 190,
-                        display: 'grid',
-                        placeItems: 'center',
-                        background: '#f1f5f9',
-                        borderRadius: 8,
-                      }}
-                    >
-                      No photo
-                    </div>
-                  )}
-
-                  <h3>{product.name}</h3>
-                  <p>₱{Number(product.price).toLocaleString('en-PH')}</p>
-                  <p>{product.category} · {product.size || 'No size'}</p>
-                  <p>{product.condition}</p>
-                  <p>{images.length} photo(s)</p>
-
-                  <label htmlFor={`status-${product.id}`}>Status</label>
-                  <select
-                    id={`status-${product.id}`}
-                    value={product.status}
-                    onChange={(e) =>
-                      void updateStatus(product.id, e.target.value)
-                    }
-                    style={fieldStyle}
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    style={buttonStyle}
                   >
-                    <option value="available">Available</option>
-                    <option value="reserved">Reserved</option>
-                    <option value="sold">Sold</option>
-                  </select>
+                    {busy
+                      ? 'Saving...'
+                      : editingId
+                        ? 'Save Changes'
+                        : 'Add Product'}
+                  </button>
 
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {editingId && (
                     <button
                       type="button"
-                      onClick={() => startEdit(product)}
+                      style={secondaryStyle}
+                      onClick={resetForm}
                     >
-                      Edit
+                      Cancel Edit
                     </button>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void deleteProduct(product)}
+                  )}
+                </div>
+              </form>
+            </div>
+
+            <h2 style={{ marginTop: 30 }}>
+              Your Products ({products.length})
+            </h2>
+
+            {products.length === 0 ? (
+              <p>No products yet.</p>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(auto-fill, minmax(230px, 1fr))',
+                  gap: 16,
+                }}
+              >
+                {products.map((product) => {
+                  const image =
+                    product.image_urls?.[0] ||
+                    product.image_url;
+
+                  return (
+                    <article
+                      key={product.id}
+                      style={cardStyle}
                     >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+                      {image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={image}
+                          alt={product.name}
+                          style={{
+                            width: '100%',
+                            height: 190,
+                            objectFit: 'cover',
+                            borderRadius: 9,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            height: 190,
+                            background: '#e9eefb',
+                            display: 'grid',
+                            placeItems: 'center',
+                            borderRadius: 9,
+                          }}
+                        >
+                          No Photo
+                        </div>
+                      )}
+
+                      <h3>{product.name}</h3>
+                      <p>{money(product.price)}</p>
+                      <p>
+                        {product.category} ·{' '}
+                        {product.size || 'No size'}
+                      </p>
+                      <p>{product.condition}</p>
+
+                      <label
+                        htmlFor={`status-${product.id}`}
+                      >
+                        Status
+                      </label>
+
+                      <select
+                        id={`status-${product.id}`}
+                        value={product.status}
+                        onChange={(e) =>
+                          void updateProductStatus(
+                            product.id,
+                            e.target.value
+                          )
+                        }
+                        style={inputStyle}
+                      >
+                        <option value="available">
+                          Available
+                        </option>
+                        <option value="reserved">
+                          Reserved
+                        </option>
+                        <option value="sold">
+                          Sold
+                        </option>
+                        <option value="hidden">
+                          Hidden
+                        </option>
+                      </select>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: 8,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          style={secondaryStyle}
+                          onClick={() =>
+                            startEdit(product)
+                          }
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          type="button"
+                          style={{
+                            ...secondaryStyle,
+                            color: '#b91c1c',
+                          }}
+                          disabled={busy}
+                          onClick={() =>
+                            void deleteProduct(product)
+                          }
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
         )}
-      </section>
+
+        {tab === 'orders' && (
+          <section>
+            <h2>Customer Orders ({orders.length})</h2>
+
+            <button
+              type="button"
+              style={secondaryStyle}
+              onClick={() => void loadData()}
+            >
+              Refresh Orders
+            </button>
+
+            {orders.length === 0 && (
+              <p>No orders have been placed yet.</p>
+            )}
+
+            <div
+              style={{
+                display: 'grid',
+                gap: 15,
+                marginTop: 18,
+              }}
+            >
+              {orders.map((order) => (
+                <article key={order.id} style={cardStyle}>
+                  <h3>
+                    Order #{order.id.slice(0, 8)}
+                  </h3>
+
+                  <p>
+                    <strong>Customer:</strong>{' '}
+                    {order.customer_name}
+                  </p>
+
+                  <p>
+                    <strong>Contact:</strong>{' '}
+                    {order.contact_number}
+                  </p>
+
+                  <p>
+                    <strong>Address:</strong>{' '}
+                    {order.delivery_address}
+                  </p>
+
+                  <p>
+                    <strong>Items:</strong>{' '}
+                    {displayItems(order.items)}
+                  </p>
+
+                  <p>
+                    <strong>Total:</strong>{' '}
+                    {money(order.total)}
+                  </p>
+
+                  <p>
+                    <strong>Date:</strong>{' '}
+                    {dateText(order.created_at)}
+                  </p>
+
+                  <label htmlFor={`order-${order.id}`}>
+                    Order Status
+                  </label>
+
+                  <select
+                    id={`order-${order.id}`}
+                    value={order.status}
+                    disabled={busy}
+                    onChange={(e) =>
+                      void updateOrderStatus(
+                        order.id,
+                        e.target.value
+                      )
+                    }
+                    style={inputStyle}
+                  >
+                    <option value="pending">
+                      Pending
+                    </option>
+                    <option value="confirmed">
+                      Confirmed
+                    </option>
+                    <option value="packed">
+                      Packed
+                    </option>
+                    <option value="shipped">
+                      Shipped
+                    </option>
+                    <option value="completed">
+                      Completed
+                    </option>
+                    <option value="cancelled">
+                      Cancelled
+                    </option>
+                  </select>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {tab === 'offers' && (
+          <section>
+            <h2>Customer Offers ({offers.length})</h2>
+
+            <p style={{ color: '#64748b' }}>
+              Offers submitted through Supabase will
+              appear here. Facebook messages are not
+              automatically recorded.
+            </p>
+
+            <button
+              type="button"
+              style={secondaryStyle}
+              onClick={() => void loadData()}
+            >
+              Refresh Offers
+            </button>
+
+            {offers.length === 0 && (
+              <p>No offers have been submitted yet.</p>
+            )}
+
+            <div
+              style={{
+                display: 'grid',
+                gap: 15,
+                marginTop: 18,
+              }}
+            >
+              {offers.map((offer) => {
+                const product = products.find(
+                  (p) => p.id === offer.product_id
+                );
+
+                return (
+                  <article
+                    key={offer.id}
+                    style={cardStyle}
+                  >
+                    <h3>
+                      {product?.name || 'Product'}
+                    </h3>
+
+                    <p>
+                      <strong>Listed Price:</strong>{' '}
+                      {product
+                        ? money(product.price)
+                        : 'Unavailable'}
+                    </p>
+
+                    <p>
+                      <strong>Customer Offer:</strong>{' '}
+                      {money(offer.offer_amount)}
+                    </p>
+
+                    <p>
+                      <strong>Status:</strong>{' '}
+                      {offer.status}
+                    </p>
+
+                    <p>
+                      <strong>Date:</strong>{' '}
+                      {dateText(offer.created_at)}
+                    </p>
+
+                    <p
+                      style={{
+                        fontSize: 12,
+                        overflowWrap: 'anywhere',
+                      }}
+                    >
+                      Customer ID: {offer.customer_id}
+                    </p>
+
+                    {offer.status === 'pending' && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          gap: 10,
+                          flexWrap: 'wrap',
+                        }}
+                      >
+                        <button
+                          type="button"
+                          disabled={busy}
+                          style={buttonStyle}
+                          onClick={() =>
+                            void updateOfferStatus(
+                              offer.id,
+                              'accepted'
+                            )
+                          }
+                        >
+                          Accept Offer
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={busy}
+                          style={secondaryStyle}
+                          onClick={() =>
+                            void updateOfferStatus(
+                              offer.id,
+                              'rejected'
+                            )
+                          }
+                        >
+                          Reject Offer
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {tab === 'contact' && (
+          <section>
+            <h2>Seller Contact</h2>
+
+            <div style={cardStyle}>
+              <h3>TalkThrift Social Accounts</h3>
+
+              <p>
+                <strong>Facebook:</strong>{' '}
+                <a
+                  href={FACEBOOK}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  KILME RUDY
+                </a>
+              </p>
+
+              <p>
+                <strong>Instagram:</strong>{' '}
+                <a
+                  href={INSTAGRAM}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  @talkthriftwhsorudy
+                </a>
+              </p>
+
+              <p style={{ color: '#64748b' }}>
+                These are your current seller contact
+                links. To change them, update the
+                contact constants in this file and
+                the product details page.
+              </p>
+            </div>
+
+            <div
+              style={{
+                ...cardStyle,
+                marginTop: 16,
+              }}
+            >
+              <h3>Delivery Information</h3>
+
+              <p>Luzon — ₱89</p>
+              <p>Visayas — ₱89</p>
+              <p>Mindanao — ₱69</p>
+              <p>Meetup in Pagadian City — Free</p>
+              <p>
+                Local Pagadian delivery — Starts at ₱30
+              </p>
+
+              <p style={{ color: '#64748b' }}>
+                These rates are currently displayed
+                in your product details page.
+              </p>
+            </div>
+          </section>
+        )}
+      </div>
     </main>
   );
 }
-
-const fieldStyle = {
-  display: 'block',
-  width: '100%',
-  boxSizing: 'border-box' as const,
-  padding: 10,
-  margin: '8px 0 16px',
-  border: '1px solid #cbd5e1',
-  borderRadius: 6,
-};
