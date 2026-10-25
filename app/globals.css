@@ -1574,69 +1574,497 @@ footer small {
   }
 }
 
-/* TALKTHRIFT NEW HOMEPAGE — scoped to tt classes */
-.ttLayout{--ttBlue:#243f9b;--ttInk:#19233f;--ttBackground:#f5f6fa;--ttBorder:#e5e7ee;display:flex;min-height:100vh;background:#fff;color:var(--ttInk);font-family:'DM Sans',Arial,sans-serif}
-.ttLayout *{box-sizing:border-box}
-.ttSidebar{width:245px;flex-shrink:0;height:100vh;position:sticky;top:0;padding:32px 22px;background:#fff;border-right:1px solid var(--ttBorder);display:flex;flex-direction:column;overflow-y:auto;z-index:101}
-.ttSidebarTop{display:flex;align-items:center;justify-content:space-between}
-.ttLogo{font-size:25px;font-weight:800;letter-spacing:-1px;color:var(--ttInk);text-decoration:none;white-space:nowrap}
-.ttLogo span{color:var(--ttBlue);font-family:'Playfair Display',Georgia,serif;font-style:italic}
-.ttTagline{font-size:10px;letter-spacing:2px;color:#8c92a1;margin:10px 0 32px}
-.ttSidebarNav{display:flex;flex-direction:column;align-items:stretch;gap:5px}
-.ttSidebarNav a,.ttSidebarNav button{display:block;width:100%;border:0;background:transparent;text-align:left;text-decoration:none;font:inherit;font-size:14px;color:var(--ttInk);padding:12px 13px;border-radius:8px;cursor:pointer}
-.ttSidebarNav a:hover,.ttSidebarNav button:hover{background:#f0f2fa;color:var(--ttBlue)}
-.ttNavLabel{margin:23px 13px 8px;font-size:10px;font-weight:800;letter-spacing:1.5px;color:#9298a5}
-.ttSidebarFooter{margin-top:auto;padding-top:30px;font-size:12px;line-height:1.6;color:#8c92a1}
-.ttClose,.ttMobileHeader{display:none}
-.ttContent{flex:1;min-width:0}
-.ttMarquee{background:var(--ttBlue);color:#fff;overflow:hidden;padding:13px 0}
-.ttMarqueeTrack{display:flex;width:max-content;animation:ttScroll 30s linear infinite}
-.ttMarqueeTrack span{flex-shrink:0;padding-right:35px;white-space:nowrap;font-size:11px;font-weight:700;letter-spacing:1px}
-@keyframes ttScroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-.ttHero{padding:85px 7%;background:var(--ttBackground)}
-.ttEyebrow{font-size:11px;font-weight:800;letter-spacing:2px;color:var(--ttBlue)}
-.ttHero h1{margin:24px 0;font-family:'Playfair Display',Georgia,serif;font-size:clamp(42px,5vw,76px);line-height:1.12;letter-spacing:-2px;color:var(--ttInk)}
-.ttHero h1 em{color:var(--ttBlue);font-weight:400}
-.ttHeroDescription{max-width:470px;font-size:16px;line-height:1.8;color:#606a80;margin-bottom:30px}
-.ttPrimaryButton{display:inline-block;background:var(--ttBlue);color:#fff;padding:15px 22px;text-decoration:none;border-radius:5px;font-size:12px;font-weight:700;letter-spacing:1px}
-.ttShop{padding:65px 7%}
-.ttSectionHeading{display:flex;justify-content:space-between;align-items:end;gap:15px;margin-bottom:25px}
-.ttSectionHeading h2{font-family:'Playfair Display',Georgia,serif;font-size:clamp(27px,3vw,40px);margin:10px 0 0}
-.ttSectionHeading>span{font-size:11px;color:#8a90a0;white-space:nowrap}
-.ttSearch{width:100%;padding:15px;border:1px solid var(--ttBorder);border-radius:6px;background:#fff;color:var(--ttInk);font-size:14px}
-.ttFilters{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0 30px}
-.ttFilters button{border:1px solid var(--ttBorder);background:#fff;padding:9px 17px;border-radius:25px;color:var(--ttInk);cursor:pointer}
-.ttFilters button.selected{background:var(--ttBlue);border-color:var(--ttBlue);color:#fff}
-.ttProductGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
-.ttProduct{display:block;min-width:0;color:inherit;text-decoration:none;border:1px solid var(--ttBorder);border-radius:8px;overflow:hidden;background:#fff}
-.ttProductImage{width:100%;aspect-ratio:3/4;background:#eef0f5;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.ttProductImage img{width:100%;height:100%;object-fit:cover}
-.ttProductImage span{font-size:12px;letter-spacing:2px;color:#9ba1b0}
-.ttProductInfo{padding:16px}
-.ttProductCategory{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ttBlue)}
-.ttProductInfo h3{margin:8px 0;font-size:16px}
-.ttProductMeta{color:#8a90a0;font-size:12px;margin-bottom:12px}
-.ttProductInfo strong{display:block;font-size:17px}
-.ttViewProduct{display:block;margin-top:16px;font-size:11px;font-weight:800;letter-spacing:1px;color:var(--ttBlue)}
-.ttEmpty{text-align:center;padding:70px 15px;color:#747d91}
-footer.ttFooter{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:25px;padding:40px 7%;background:var(--ttInk);color:#fff}
-.ttFooter h2{margin:0 0 12px;font-size:22px}
-footer.ttFooter p,footer.ttFooter small{font-family:'DM Sans',Arial,sans-serif;text-align:left;font-style:normal;font-size:12px;line-height:1.8;color:#d1d6e5}
-footer.ttFooter small{width:100%;grid-column:auto;margin-top:0}
-@media(max-width:900px){
-.ttLayout{display:block}
-.ttMobileHeader{display:flex;align-items:center;justify-content:space-between;height:70px;padding:0 20px;background:#fff;border-bottom:1px solid var(--ttBorder)}
-.ttMobileHeader .ttLogo{font-size:23px}
-.ttMenuButton{display:flex;align-items:center;gap:7px;border:1px solid var(--ttBorder);border-radius:6px;background:#fff;padding:9px 12px;color:var(--ttInk);font-size:13px;cursor:pointer}
-.ttSidebar{position:fixed;top:0;left:0;width:min(310px,85vw);height:100dvh;transform:translateX(-105%);visibility:hidden;transition:transform .25s ease,visibility .25s ease;box-shadow:4px 0 25px rgba(0,0,0,.08)}
-.ttSidebarOpen{transform:translateX(0);visibility:visible}
-.ttClose{display:block;border:0;background:transparent;color:var(--ttInk);font-size:30px;cursor:pointer}
-.ttOverlay{position:fixed;inset:0;z-index:100;border:0;background:rgba(12,20,40,.48)}
-.ttHero{padding:65px 25px}
-.ttShop{padding:45px 20px}
-.ttProductGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.ttProductInfo{padding:12px}
-footer.ttFooter{padding:35px 20px}
+/* ==========================================
+   TALKTHRIFT - FIXED RESPONSIVE HOMEPAGE
+   ========================================== */
+
+.ttLayout {
+  --ttBlue: #243f9b;
+  --ttInk: #19233f;
+  --ttBackground: #f5f6fa;
+  --ttBorder: #e5e7ee;
+  display: flex;
+  min-height: 100vh;
+  background: #ffffff;
+  color: var(--ttInk);
+  font-family: 'DM Sans', Arial, sans-serif;
 }
-@media(max-width:420px){.ttHero h1{font-size:42px}.ttProductInfo h3{font-size:14px}.ttProductInfo strong{font-size:15px}}
-@media(prefers-reduced-motion:reduce){.ttMarqueeTrack{animation:none}.ttSidebar{transition:none}}
+
+.ttLayout * {
+  box-sizing: border-box;
+}
+
+.ttSidebar {
+  width: 245px;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  padding: 32px 22px;
+  background: white;
+  border-right: 1px solid var(--ttBorder);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  z-index: 101;
+}
+
+.ttSidebarTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ttLogo {
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--ttInk);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ttLogo span {
+  color: var(--ttBlue);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-style: italic;
+}
+
+.ttTagline {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #8c92a1;
+  margin: 10px 0 32px;
+}
+
+.ttSidebarNav {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.ttSidebarNav a,
+.ttSidebarNav button {
+  display: block;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ttInk);
+  padding: 12px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ttSidebarNav a:hover,
+.ttSidebarNav button:hover {
+  background: #f0f2fa;
+  color: var(--ttBlue);
+}
+
+.ttNavLabel {
+  margin: 23px 13px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #9298a5;
+}
+
+.ttSidebarFooter {
+  margin-top: auto;
+  padding-top: 30px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8c92a1;
+}
+
+.ttClose,
+.ttMobileHeader {
+  display: none;
+}
+
+.ttContent {
+  flex: 1;
+  min-width: 0;
+}
+
+/* SCROLLING ANNOUNCEMENT */
+
+.ttMarquee {
+  background: var(--ttBlue);
+  color: white;
+  overflow: hidden;
+  padding: 13px 0;
+}
+
+.ttMarqueeTrack {
+  display: flex;
+  width: max-content;
+  animation: ttScroll 30s linear infinite;
+}
+
+.ttMarqueeTrack span {
+  flex-shrink: 0;
+  padding-right: 35px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+@keyframes ttScroll {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* HOMEPAGE HERO */
+
+.ttHero {
+  padding: 85px 7%;
+  background: var(--ttBackground);
+}
+
+.ttEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  color: var(--ttBlue);
+}
+
+.ttHero h1 {
+  margin: 24px 0;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(42px, 5vw, 76px);
+  line-height: 1.12;
+  letter-spacing: -2px;
+  color: var(--ttInk);
+}
+
+.ttHero h1 em {
+  color: var(--ttBlue);
+  font-weight: 400;
+}
+
+.ttHeroDescription {
+  max-width: 470px;
+  font-size: 16px;
+  line-height: 1.8;
+  color: #606a80;
+  margin-bottom: 30px;
+}
+
+.ttPrimaryButton {
+  display: inline-block;
+  background: var(--ttBlue);
+  color: white;
+  padding: 15px 22px;
+  text-decoration: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.ttPrimaryButton:hover {
+  background: #192d75;
+}
+
+/* SHOP SECTION */
+
+.ttShop {
+  padding: 65px 7%;
+}
+
+.ttSectionHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.ttSectionHeading h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(27px, 3vw, 40px);
+  margin: 10px 0 0;
+}
+
+.ttSectionHeading > span {
+  font-size: 11px;
+  color: #8a90a0;
+  white-space: nowrap;
+}
+
+.ttSearch {
+  width: 100%;
+  padding: 15px;
+  border: 1px solid var(--ttBorder);
+  border-radius: 6px;
+  background: white;
+  color: var(--ttInk);
+  font-size: 14px;
+}
+
+.ttFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 18px 0 30px;
+}
+
+.ttFilters button {
+  border: 1px solid var(--ttBorder);
+  background: white;
+  padding: 9px 17px;
+  border-radius: 25px;
+  color: var(--ttInk);
+  cursor: pointer;
+}
+
+.ttFilters button.selected {
+  background: var(--ttBlue);
+  border-color: var(--ttBlue);
+  color: white;
+}
+
+/* PRODUCT CARDS */
+
+.ttProductGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.ttProduct {
+  display: block;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  border: 1px solid var(--ttBorder);
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.ttProductImage {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: #eef0f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.ttProductImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ttProductImage span {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #9ba1b0;
+}
+
+.ttProductInfo {
+  padding: 16px;
+}
+
+.ttProductCategory {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ttBlue);
+}
+
+.ttProductInfo h3 {
+  margin: 8px 0;
+  font-size: 16px;
+}
+
+.ttProductMeta {
+  color: #8a90a0;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.ttProductInfo strong {
+  display: block;
+  font-size: 17px;
+}
+
+.ttViewProduct {
+  display: block;
+  margin-top: 16px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--ttBlue);
+}
+
+.ttEmpty {
+  text-align: center;
+  padding: 70px 15px;
+  color: #747d91;
+}
+
+/* FOOTER */
+
+footer.ttFooter {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 25px;
+  padding: 40px 7%;
+  background: var(--ttInk);
+  color: white;
+}
+
+.ttFooter h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+}
+
+footer.ttFooter p,
+footer.ttFooter small {
+  font-family: 'DM Sans', Arial, sans-serif;
+  text-align: left;
+  font-style: normal;
+  font-size: 12px;
+  line-height: 1.8;
+  color: #d1d6e5;
+}
+
+footer.ttFooter small {
+  width: 100%;
+  grid-column: auto;
+  margin-top: 0;
+}
+
+/* MOBILE AND TABLET */
+
+@media (max-width: 900px) {
+  .ttLayout {
+    display: block;
+  }
+
+  .ttMobileHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 70px;
+    padding: 0 20px;
+    background: white;
+    border-bottom: 1px solid var(--ttBorder);
+  }
+
+  .ttMobileHeader .ttLogo {
+    font-size: 23px;
+  }
+
+  .ttMenuButton {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--ttBorder);
+    border-radius: 6px;
+    background: white;
+    padding: 9px 12px;
+    color: var(--ttInk);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .ttSidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: min(310px, 85vw);
+    height: 100dvh;
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition:
+      transform 0.25s ease,
+      visibility 0.25s ease;
+    box-shadow: 4px 0 25px rgba(0, 0, 0, 0.08);
+  }
+
+  .ttSidebarOpen {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .ttClose {
+    display: block;
+    border: none;
+    background: transparent;
+    color: var(--ttInk);
+    font-size: 30px;
+    cursor: pointer;
+  }
+
+  .ttOverlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    border: none;
+    background: rgba(12, 20, 40, 0.48);
+  }
+
+  .ttHero {
+    padding: 65px 25px;
+  }
+
+  .ttShop {
+    padding: 45px 20px;
+  }
+
+  .ttProductGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .ttProductInfo {
+    padding: 12px;
+  }
+
+  footer.ttFooter {
+    padding: 35px 20px;
+  }
+}
+
+@media (max-width: 420px) {
+  .ttHero h1 {
+    font-size: 42px;
+  }
+
+  .ttProductInfo h3 {
+    font-size: 14px;
+  }
+
+  .ttProductInfo strong {
+    font-size: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ttMarqueeTrack {
+    animation: none;
+  }
+
+  .ttSidebar {
+    transition: none;
+  }
+}
