@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -8,6 +7,8 @@ import {
   useState,
 } from 'react';
 import type { CSSProperties } from 'react';
+import Link from 'next/link';
+import { Alert } from '../components/StoreUI';
 import type { Session } from '@supabase/supabase-js';
 import {
   supabase,
@@ -81,16 +82,16 @@ const inputStyle: CSSProperties = {
   boxSizing: 'border-box',
   padding: 12,
   margin: '7px 0 16px',
-  border: '1px solid #cbd5e1',
+  border: '1px solid var(--line)',
   borderRadius: 9,
   fontSize: 14,
-  background: '#fff',
-  color: '#172554',
+  background: 'var(--paper)',
+  color: 'var(--ink)',
 };
 
 const cardStyle: CSSProperties = {
-  background: '#fff',
-  border: '1px solid #dbe3f0',
+  background: 'var(--paper)',
+  border: '1px solid var(--line)',
   borderRadius: 16,
   padding: 18,
 };
@@ -99,16 +100,16 @@ const buttonStyle: CSSProperties = {
   border: 0,
   borderRadius: 9,
   padding: '11px 16px',
-  background: '#233fbd',
-  color: '#fff',
+  background: 'var(--blue)',
+  color: 'var(--paper)',
   fontWeight: 600,
   cursor: 'pointer',
 };
 
 const secondaryStyle: CSSProperties = {
   ...buttonStyle,
-  background: '#e9eefb',
-  color: '#233fbd',
+  background: 'var(--blue-light)',
+  color: 'var(--blue)',
 };
 
 const money = (amount: number) =>
@@ -191,6 +192,7 @@ export default function Admin() {
     useState<string | null>(null);
 
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const totalPhotoBytes = photos.reduce(
@@ -844,69 +846,7 @@ export default function Admin() {
   }
 
   if (!session) {
-    return (
-      <main
-        style={{
-          maxWidth: 420,
-          margin: '50px auto',
-          padding: 24,
-        }}
-      >
-        <h1>TalkThrift Seller Login</h1>
-
-        <p>
-          Sign in with your owner account.
-        </p>
-
-        <form onSubmit={login}>
-          <label htmlFor="admin-email">
-            Email
-          </label>
-
-          <input
-            id="admin-email"
-            type="email"
-            value={email}
-            onChange={(e) =>
-              setEmail(e.target.value)
-            }
-            required
-            style={inputStyle}
-          />
-
-          <label htmlFor="admin-password">
-            Password
-          </label>
-
-          <input
-            id="admin-password"
-            type="password"
-            value={password}
-            onChange={(e) =>
-              setPassword(e.target.value)
-            }
-            required
-            style={inputStyle}
-          />
-
-          <button
-            type="submit"
-            disabled={busy}
-            style={buttonStyle}
-          >
-            {busy
-              ? 'Signing in...'
-              : 'Sign In'}
-          </button>
-        </form>
-
-        {message && (
-          <p role="status">
-            {message}
-          </p>
-        )}
-      </main>
-    );
+    return <main className="adminWrap"><section className="adminPanel accountPanel"><h1>Seller access</h1><Alert notice={message ? { type: 'error', text: message } : null} /><p>Log in with your seller account to manage TalkThrift.</p><Link className="primary" href="/account?next=%2Fadmin">Log in ↗</Link><Link href="/">← Back to Store</Link></section></main>;
   }
 
   if (!isOwner) {
@@ -978,8 +918,8 @@ export default function Admin() {
     <main
       style={{
         minHeight: '100vh',
-        background: '#f6f8fc',
-        color: '#172554',
+        background: 'var(--cream)',
+        color: 'var(--ink)',
         padding: '22px 16px 60px',
       }}
     >
@@ -1003,7 +943,7 @@ export default function Admin() {
           <div>
             <p
               style={{
-                color: '#4762c6',
+                color: 'var(--blue)',
                 fontWeight: 700,
               }}
             >
@@ -1020,7 +960,7 @@ export default function Admin() {
 
             <p
               style={{
-                color: '#64748b',
+                color: 'var(--muted)',
               }}
             >
               Manage your thrift store
@@ -1067,20 +1007,7 @@ export default function Admin() {
           ))}
         </nav>
 
-        {message && (
-          <p
-            role="status"
-            style={{
-              padding: 14,
-              borderRadius: 10,
-              background: '#e9eefb',
-              overflowWrap: 'anywhere',
-              marginBottom: 18,
-            }}
-          >
-            {message}
-          </p>
-        )}
+        <Alert notice={message ? { type: /failed|error|unable|invalid|cannot|not allowed|not connected|not configured|required|must|only|expired/i.test(message) ? 'error' : 'info', text: message } : null} />
 
         {tab === 'overview' && (
           <section>
@@ -1122,7 +1049,7 @@ export default function Admin() {
                 >
                   <p
                     style={{
-                      color: '#64748b',
+                      color: 'var(--muted)',
                     }}
                   >
                     {label}
@@ -1132,7 +1059,7 @@ export default function Admin() {
                     style={{
                       fontSize: 32,
                       margin: '8px 0',
-                      color: '#233fbd',
+                      color: 'var(--blue)',
                     }}
                   >
                     {value}
@@ -1419,7 +1346,7 @@ export default function Admin() {
                           }
                           style={{
                             border:
-                              '1px solid #dbe3f0',
+                              '1px solid var(--line)',
                             padding: 10,
                             borderRadius: 9,
                             maxWidth: 180,
@@ -1556,7 +1483,7 @@ export default function Admin() {
                             style={{
                               height: 190,
                               background:
-                                '#e9eefb',
+                                'var(--blue-light)',
                               display:
                                 'grid',
                               placeItems:
@@ -1809,27 +1736,27 @@ export default function Admin() {
                     }
                     style={inputStyle}
                   >
-                    <option value="pending">
+                    <option value="pending" disabled={order.status !== 'pending' && !({ pending: ['confirmed','cancelled'], confirmed: ['packed','shipped','cancelled'], packed: ['shipped','cancelled'], shipped: ['completed'], completed: [], cancelled: [] } as Record<string, string[]>)[order.status]?.includes('pending')}>
                       Pending
                     </option>
 
-                    <option value="confirmed">
+                    <option value="confirmed" disabled={order.status !== 'confirmed' && !({ pending: ['confirmed','cancelled'], confirmed: ['packed','shipped','cancelled'], packed: ['shipped','cancelled'], shipped: ['completed'], completed: [], cancelled: [] } as Record<string, string[]>)[order.status]?.includes('confirmed')}>
                       Confirmed
                     </option>
 
-                    <option value="packed">
+                    <option value="packed" disabled={order.status !== 'packed' && !({ pending: ['confirmed','cancelled'], confirmed: ['packed','shipped','cancelled'], packed: ['shipped','cancelled'], shipped: ['completed'], completed: [], cancelled: [] } as Record<string, string[]>)[order.status]?.includes('packed')}>
                       Packed
                     </option>
 
-                    <option value="shipped">
+                    <option value="shipped" disabled={order.status !== 'shipped' && !({ pending: ['confirmed','cancelled'], confirmed: ['packed','shipped','cancelled'], packed: ['shipped','cancelled'], shipped: ['completed'], completed: [], cancelled: [] } as Record<string, string[]>)[order.status]?.includes('shipped')}>
                       Shipped
                     </option>
 
-                    <option value="completed">
+                    <option value="completed" disabled={order.status !== 'completed' && !({ pending: ['confirmed','cancelled'], confirmed: ['packed','shipped','cancelled'], packed: ['shipped','cancelled'], shipped: ['completed'], completed: [], cancelled: [] } as Record<string, string[]>)[order.status]?.includes('completed')}>
                       Completed
                     </option>
 
-                    <option value="cancelled">
+                    <option value="cancelled" disabled={order.status !== 'cancelled' && !({ pending: ['confirmed','cancelled'], confirmed: ['packed','shipped','cancelled'], packed: ['shipped','cancelled'], shipped: ['completed'], completed: [], cancelled: [] } as Record<string, string[]>)[order.status]?.includes('cancelled')}>
                       Cancelled
                     </option>
                   </select>
@@ -1848,7 +1775,7 @@ export default function Admin() {
 
             <p
               style={{
-                color: '#64748b',
+                color: 'var(--muted)',
               }}
             >
               Offers submitted through
@@ -2038,7 +1965,7 @@ export default function Admin() {
 
               <p
                 style={{
-                  color: '#64748b',
+                  color: 'var(--muted)',
                 }}
               >
                 These contact links are
