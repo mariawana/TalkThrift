@@ -1,739 +1,103 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { Alert, LoginDialog } from '../../components/StoreUI';
+import type { Notice } from '../../components/StoreUI';
 
-const SELLER_FACEBOOK = 'https://www.facebook.com/kilme.rudy';
-const SELLER_INSTAGRAM =
-  'https://www.instagram.com/talkthriftwhsorudy/';
-
-type Product = {
-  id: string;
-  name: string;
-  category: string;
-  size: string | null;
-  condition: string;
-  price: number;
-  image_url: string | null;
-  image_urls?: string[] | null;
-  description: string | null;
-  status: string;
-};
-
+type Product = { id: string; name: string; category: string; size: string | null; condition: string; price: number; image_url: string | null; image_urls?: string[] | null; description: string | null; status: string };
+const money = (value: number) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(Number(value));
 export default function ProductDetails() {
-  const params = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const router = useRouter();
-
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [notice, setNotice] = useState('');
-  const [photoIndex, setPhotoIndex] = useState(0);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [retry, setRetry] = useState(0);
+  const [photo, setPhoto] = useState(0);
+  const [loginOpen, setLoginOpen] = useState(false);
   const [showOffer, setShowOffer] = useState(false);
-  const [offerAmount, setOfferAmount] = useState('');
-  const [sendingOffer, setSendingOffer] = useState(false);
-  const [openingChat, setOpeningChat] = useState(false);
-
+  const [amount, setAmount] = useState('');
+  const [busy, setBusy] = useState('');
+  const actionLock = useRef(false);
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadProduct() {
-      if (!supabase) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', params.id)
-        .maybeSingle();
-
-      if (!cancelled) {
-        setProduct(!error && data ? (data as Product) : null);
-        setLoading(false);
-      }
-    }
-
-    if (params.id) {
-      void loadProduct();
-    } else {
-      setLoading(false);
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [params.id]);
-
-  const photos = product
-    ? Array.from(
-        new Set(
-          [
-            ...(product.image_urls ?? []),
-            product.image_url,
-          ].filter((url): url is string => Boolean(url))
-        )
-      )
-    : [];
-
-  const price = (amount: number) =>
-    `₱${Number(amount).toLocaleString('en-PH', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    })}`;
-
-  async function buyNow() {
-    if (!product || !supabase) {
-      setNotice('Unable to proceed. Please try again.');
-      return;
-    }
-
-    if (product.status !== 'available') {
-      setNotice('This item is no longer available.');
-      return;
-    }
-
-    const {
-      data: { session },
-      error,
-    } = await supabase.auth.getSession();
-
-    if (error) {
-      setNotice('Unable to check your account. Please try again.');
-      return;
-    }
-
-    if (!session) {
-      router.push(
-        `/account?next=${encodeURIComponent(
-          `/product/${product.id}`
-        )}`
-      );
-      return;
-    }
-
-    localStorage.setItem(
-      'rewear-cart',
-      JSON.stringify([product])
-    );
-
-    router.push('/checkout');
+    let active = true; setLoading(true); setNotice(null); setPhoto(0);
+    (async () => {
+      try {
+        if (!supabase) throw new Error();
+        const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
+        if (error) throw error;
+        if (active) setProduct(data as Product | null);
+      } catch { if (active) { setProduct(null); setNotice({ type: 'error', text: 'Unable to load this piece. Check your connection and try again.' }); } }
+      finally { if (active) setLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [id, retry]);
+  async function customer() {
+    if (!supabase) throw new Error('The store connection is unavailable.');
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (!user && (!error || error.name === 'AuthSessionMissingError')) { setLoginOpen(true); return false; }
+    if (error || !user) throw new Error('Unable to verify your account. Please log in again.');
+    const { data, error: roleError } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+    if (roleError) throw new Error('Unable to verify your account. Try again.');
+    if (data?.role === 'owner') throw new Error('Use a customer account to buy or make offers. Your seller conversations are in Messages.');
+    return true;
   }
-
-  async function getLoggedInUser() {
-    if (!supabase || !product) {
-      setNotice('Unable to connect. Please try again.');
-      return null;
-    }
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (error) {
-      setNotice('Unable to verify your account. Please try again.');
-      return null;
-    }
-
-    if (!user) {
-      router.push(
-        `/account?next=${encodeURIComponent(
-          `/product/${product.id}`
-        )}`
-      );
-      return null;
-    }
-
-    return user;
-  }
-
-  async function getOrCreateConversation(
-    productId: string,
-    buyerId: string
-  ): Promise<string> {
-    if (!supabase) {
-      throw new Error('Supabase is not configured.');
-    }
-
-    const { data: existing, error: lookupError } =
-      await supabase
-        .from('conversations')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('buyer_id', buyerId)
-        .maybeSingle();
-
-    if (lookupError) {
-      throw new Error(lookupError.message);
-    }
-
-    if (existing) {
-      return existing.id;
-    }
-
-    const { data: created, error: createError } =
-      await supabase
-        .from('conversations')
-        .insert({
-          product_id: productId,
-          buyer_id: buyerId,
-        })
-        .select('id')
-        .single();
-
-    if (!createError && created) {
-      return created.id;
-    }
-
-    // Another request may have created the same conversation.
-    // Recheck before reporting an error.
-    const { data: retry, error: retryError } =
-      await supabase
-        .from('conversations')
-        .select('id')
-        .eq('product_id', productId)
-        .eq('buyer_id', buyerId)
-        .maybeSingle();
-
-    if (!retryError && retry) {
-      return retry.id;
-    }
-
-    throw new Error(
-      createError?.message ||
-        retryError?.message ||
-        'Unable to create conversation.'
-    );
-  }
-
-  function openConversation(conversationId: string) {
-    router.push(
-      `/messages?conversation=${encodeURIComponent(
-        conversationId
-      )}`
-    );
-  }
-
-  async function messageSeller() {
-    if (!product || !supabase || openingChat) return;
-
-    setNotice('');
-    setOpeningChat(true);
-
+  async function action(kind: 'buy' | 'message' | 'offer') {
+    if (!product || actionLock.current) return;
+    actionLock.current = true; setBusy(kind); setNotice(null);
     try {
-      const user = await getLoggedInUser();
-
-      if (!user) return;
-
-      const { data: profile, error: profileError } =
-        await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (profileError) {
-        throw new Error(profileError.message);
+      if (!(await customer())) return;
+      if (!supabase) return;
+      if (kind !== 'message' && product.status !== 'available') throw new Error('This piece is no longer available.');
+      if (kind === 'offer') { setShowOffer(true); return; }
+      if (kind === 'buy') {
+        router.push(`/checkout?product=${encodeURIComponent(product.id)}`); return;
       }
-
-      if (profile?.role === 'owner') {
-        router.push('/messages');
-        return;
-      }
-
-      const conversationId =
-        await getOrCreateConversation(
-          product.id,
-          user.id
-        );
-
-      openConversation(conversationId);
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? `Unable to open chat: ${error.message}`
-          : 'Unable to open chat. Please try again.'
-      );
-    } finally {
-      setOpeningChat(false);
-    }
+      const { data, error } = await supabase.rpc('open_product_conversation', { p_product_id: product.id });
+      if (error || !data) throw new Error('Unable to open this conversation. Please retry or contact the seller.');
+      router.push(`/messages?conversation=${encodeURIComponent(data)}`);
+    } catch (error) { setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unable to continue. Try again.' }); }
+    finally { setBusy(''); actionLock.current = false; }
   }
-
-  function makeOffer() {
-    setShowOffer(true);
-    setNotice('');
-  }
-
-  async function sendOffer() {
-    if (!product || !supabase || sendingOffer) return;
-
-    setNotice('');
-
-    if (product.status !== 'available') {
-      setNotice('This item is no longer available.');
-      return;
-    }
-
-    const amount = Number(offerAmount);
-
-    if (
-      !offerAmount.trim() ||
-      !Number.isFinite(amount) ||
-      amount <= 0 ||
-      !Number.isInteger(Math.round(amount * 100))
-    ) {
-      setNotice(
-        'Please enter a valid offer amount with up to two decimal places.'
-      );
-      return;
-    }
-
-    if (amount >= Number(product.price)) {
-      setNotice(
-        'Your offer must be lower than the listed price. Use Buy Now for the full price.'
-      );
-      return;
-    }
-
-    setSendingOffer(true);
-
+  async function sendOffer(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault(); if (!product || actionLock.current) return;
+    setNotice(null);
+    const value = Number(amount);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(amount.trim()) || !Number.isFinite(value) || value <= 0 || value >= Number(product.price)) { setNotice({ type: 'error', text: 'Enter an offer greater than ₱0 and below the listed price, with up to two decimal places.' }); return; }
+    actionLock.current = true; setBusy('send');
     try {
-      const user = await getLoggedInUser();
-
-      if (!user) return;
-
-      const { data: profile, error: profileError } =
-        await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      if (profileError) {
-        throw new Error(profileError.message);
+      if (!(await customer()) || !supabase) return;
+      const { data, error } = await supabase.rpc('submit_product_offer', { p_product_id: product.id, p_amount: value });
+      if (error || !data) {
+        const pending = error?.message.includes('pending offer');
+        throw new Error(pending ? 'You already have a pending offer. Open Messages to discuss it with the seller.' : 'Your offer could not be submitted. The price or availability may have changed. Refresh and try again.');
       }
-
-      if (profile?.role === 'owner') {
-        setNotice(
-          'Seller accounts cannot submit offers.'
-        );
-        return;
-      }
-
-      const { data: latestProduct, error: productError } =
-        await supabase
-          .from('products')
-          .select('id,price,status')
-          .eq('id', product.id)
-          .maybeSingle();
-
-      if (productError || !latestProduct) {
-        setNotice(
-          'Unable to verify this product. Please try again.'
-        );
-        return;
-      }
-
-      if (latestProduct.status !== 'available') {
-        setNotice(
-          'Sorry, this product is no longer available.'
-        );
-        return;
-      }
-
-      if (amount >= Number(latestProduct.price)) {
-        setNotice(
-          'The product price has changed. Please enter an offer below the current price.'
-        );
-
-        setProduct((current) =>
-          current
-            ? {
-                ...current,
-                price: Number(latestProduct.price),
-                status: latestProduct.status,
-              }
-            : current
-        );
-
-        return;
-      }
-
-      const { data: existingOffers, error: checkError } =
-        await supabase
-          .from('offers')
-          .select('id')
-          .eq('product_id', product.id)
-          .eq('customer_id', user.id)
-          .eq('status', 'pending')
-          .limit(1);
-
-      if (checkError) {
-        throw new Error(
-          `Unable to check existing offers: ${checkError.message}`
-        );
-      }
-
-      if (existingOffers && existingOffers.length > 0) {
-        const conversationId =
-          await getOrCreateConversation(
-            product.id,
-            user.id
-          );
-
-        setNotice(
-          'You already have a pending offer. Opening your conversation.'
-        );
-
-        openConversation(conversationId);
-        return;
-      }
-
-      // Create the conversation before saving the offer.
-      const conversationId =
-        await getOrCreateConversation(
-          product.id,
-          user.id
-        );
-
-      const { error: offerError } = await supabase
-        .from('offers')
-        .insert({
-          product_id: product.id,
-          customer_id: user.id,
-          offer_amount: amount,
-          status: 'pending',
-        });
-
-      if (offerError) {
-        throw new Error(
-          `Unable to submit your offer: ${offerError.message}`
-        );
-      }
-
-      const offerMessage =
-        `💬 NEW OFFER\n\n` +
-        `Product: ${product.name}\n` +
-        `Listed Price: ${price(Number(latestProduct.price))}\n` +
-        `My Offer: ${price(amount)}\n\n` +
-        `Hi! I would like to offer ${price(amount)} ` +
-        `for this item. Please let me know if we can negotiate.`;
-
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          sender_id: user.id,
-          body: offerMessage,
-        });
-
-      if (messageError) {
-        setShowOffer(false);
-        setOfferAmount('');
-        setNotice(
-          'Your offer was saved, but its chat message could not be sent. ' +
-          'Please open your conversation and message the seller. ' +
-          messageError.message
-        );
-        return;
-      }
-
-      setShowOffer(false);
-      setOfferAmount('');
-
-      openConversation(conversationId);
-    } catch (error) {
-      setNotice(
-        error instanceof Error
-          ? error.message
-          : 'Something went wrong. Please try again.'
-      );
-    } finally {
-      setSendingOffer(false);
-    }
+      setShowOffer(false); setAmount(''); router.push(`/messages?conversation=${encodeURIComponent(data)}`);
+    } catch (error) { setNotice({ type: 'error', text: error instanceof Error ? error.message : 'Unable to submit your offer. Try again.' }); }
+    finally { setBusy(''); actionLock.current = false; }
   }
-
-  async function shareProduct() {
-    try {
-      await navigator.clipboard.writeText(
-        window.location.href
-      );
-
-      setNotice(
-        'Product link copied! You can now share it.'
-      );
-    } catch {
-      setNotice(
-        'Please copy the product link from your browser.'
-      );
-    }
+  async function share() {
+    try { await navigator.clipboard.writeText(location.href); setNotice({ type: 'success', text: 'Product link copied. You can share it now.' }); }
+    catch { setNotice({ type: 'info', text: 'Copy the product address from your browser to share this piece.' }); }
   }
-
-  if (loading) {
-    return (
-      <main className="productDetails">
-        <p>Loading this find...</p>
-      </main>
-    );
-  }
-
-  if (!product) {
-    return (
-      <main className="productDetails">
-        <h1>We couldn&apos;t find this piece.</h1>
-        <a href="/">← Back to TalkThrift</a>
-      </main>
-    );
-  }
-
-  return (
-    <main className="productDetails">
-      <a href="/" className="backLink">
-        ← Back to TalkThrift
-      </a>
-
-      <div className="detailsGrid">
-        <section className="detailsPhotos">
-          <div className="mainPhoto">
-            {photos.length > 0 ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={
-                  photos[
-                    Math.min(
-                      photoIndex,
-                      photos.length - 1
-                    )
-                  ]
-                }
-                alt={product.name}
-              />
-            ) : (
-              <div className="noImage">
-                <span>TT</span>
-                <small>PHOTO COMING SOON</small>
-              </div>
-            )}
-          </div>
-
-          {photos.length > 1 && (
-            <div className="photoThumbnails">
-              {photos.map((photo, index) => (
-                <button
-                  type="button"
-                  key={photo}
-                  onClick={() => setPhotoIndex(index)}
-                  aria-label={`View photo ${index + 1}`}
-                  aria-pressed={photoIndex === index}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={photo}
-                    alt={`${product.name} photo ${index + 1}`}
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="detailsInfo">
-          <p className="eyebrow">
-            THE TALKTHRIFT FIND
-          </p>
-
-          <p className="detailCategory">
-            {product.category}
-          </p>
-
-          <h1>{product.name}</h1>
-
-          <p className="detailPrice">
-            {price(product.price)}
-          </p>
-
-          <p>
-            <strong>Condition:</strong>{' '}
-            {product.condition}
-          </p>
-
-          <p>
-            <strong>Size:</strong>{' '}
-            {product.size || 'One size'}
-          </p>
-
-          <p>
-            <strong>Availability:</strong>{' '}
-            {product.status === 'available'
-              ? 'Available'
-              : product.status === 'reserved'
-                ? 'Reserved'
-                : product.status === 'sold'
-                  ? 'Sold'
-                  : 'Unavailable'}
-          </p>
-
-          <div className="detailDescription">
-            <h2>About this piece</h2>
-            <p>
-              {product.description ||
-                'No description has been added yet.'}
-            </p>
-          </div>
-
-          {product.status === 'available' ? (
-            <div className="detailActions">
-              <button
-                type="button"
-                className="primary"
-                onClick={buyNow}
-              >
-                Buy Now ↗
-              </button>
-
-              <button
-                type="button"
-                className="secondaryAction"
-                onClick={messageSeller}
-                disabled={openingChat}
-              >
-                {openingChat
-                  ? 'Opening Chat...'
-                  : '💬 Message Seller'}
-              </button>
-
-              <button
-                type="button"
-                className="secondaryAction"
-                onClick={makeOffer}
-                disabled={sendingOffer}
-              >
-                Make an Offer
-              </button>
-            </div>
-          ) : (
-            <p>
-              This item is no longer available.
-            </p>
-          )}
-
-          {showOffer &&
-            product.status === 'available' && (
-              <div className="offerPanel">
-                <h2>Make an Offer</h2>
-
-                <p>
-                  Listed price: {price(product.price)}
-                </p>
-
-                <label htmlFor="offerAmount">
-                  Your offer (PHP)
-                </label>
-
-                <input
-                  id="offerAmount"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  max={product.price}
-                  value={offerAmount}
-                  placeholder="Enter your offer"
-                  disabled={sendingOffer}
-                  onChange={(event) =>
-                    setOfferAmount(event.target.value)
-                  }
-                />
-
-                <div className="offerButtons">
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={sendOffer}
-                    disabled={sendingOffer}
-                  >
-                    {sendingOffer
-                      ? 'Submitting...'
-                      : 'Submit Offer'}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="secondaryAction"
-                    disabled={sendingOffer}
-                    onClick={() => {
-                      setShowOffer(false);
-                      setOfferAmount('');
-                      setNotice('');
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-          <button
-            type="button"
-            className="shareAction"
-            onClick={shareProduct}
-          >
-            ↗ Share this find
-          </button>
-
-          <div className="shippingNote">
-            <h2>Delivery information</h2>
-
-            <p>Luzon — ₱89</p>
-            <p>Visayas — ₱89</p>
-            <p>Mindanao — ₱69</p>
-            <p>Meetup in Pagadian City — Free</p>
-            <p>
-              Local Pagadian delivery — Starts at ₱30
-            </p>
-
-            <small>
-              Confirm your delivery fee and payment
-              arrangement with the seller before
-              completing your transaction.
-            </small>
-          </div>
-
-          <div className="shippingNote">
-            <h2>Connect with the seller</h2>
-
-            <p>
-              <a
-                href={SELLER_FACEBOOK}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Facebook — KILME RUDY ↗
-              </a>
-            </p>
-
-            <p>
-              <a
-                href={SELLER_INSTAGRAM}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Instagram — @talkthriftwhsorudy ↗
-              </a>
-            </p>
-          </div>
-
-          {notice && (
-            <p role="status" className="notice">
-              {notice}
-            </p>
-          )}
-        </section>
-      </div>
-    </main>
-  );
+  const photos = product ? Array.from(new Set([...(product.image_urls ?? []), product.image_url].filter((value): value is string => Boolean(value)))) : [];
+  return <main className="productDetails"><Link className="backLink" href="/">← Back to collection</Link><Alert notice={notice} />
+    {loading ? <p role="status">Loading this find…</p> : !product ? <section className="ttEmpty"><h1>This piece is unavailable.</h1><p>It may have been removed, or we couldn’t load it.</p><button className="secondary" onClick={() => setRetry((value) => value + 1)}>Try again</button></section> : <div className="detailsGrid">
+      <section className="detailsPhotos" aria-label="Product photos"><div className="mainPhoto">{photos.length ? <img src={photos[Math.min(photo, photos.length - 1)]} alt={product.name} /> : <div className="noImage"><span>TT</span><small>PHOTO COMING SOON</small></div>}</div>
+        {photos.length > 1 && <div className="photoThumbnails">{photos.map((url, index) => <button key={url} type="button" aria-label={`View photo ${index + 1}`} aria-pressed={index === photo} onClick={() => setPhoto(index)}><img src={url} alt={`${product.name}, photo ${index + 1}`} loading="lazy" /></button>)}</div>}
+      </section>
+      <section className="detailsInfo"><p className="eyebrow">THE TALKTHRIFT FIND</p><p className="detailCategory">{product.category}</p><h1>{product.name}</h1><p className="detailPrice">{money(product.price)}</p><p><strong>Condition:</strong> {product.condition}</p><p><strong>Size:</strong> {product.size || 'Size not listed'}</p><p><strong>Availability:</strong> {product.status}</p>
+        <div className="detailDescription"><h2>About this piece</h2><p>{product.description || 'Message the seller if you need more details about this piece.'}</p></div>
+        <div className="detailActions">{product.status === 'available' && <button className="primary" disabled={Boolean(busy)} onClick={() => void action('buy')}>{busy === 'buy' ? 'Checking account…' : 'Buy Now ↗'}</button>}<button className="secondaryAction" disabled={Boolean(busy)} onClick={() => void action('message')}>{busy === 'message' ? 'Opening conversation…' : 'Message Seller'}</button>{product.status === 'available' && <button className="secondaryAction" disabled={Boolean(busy)} onClick={() => void action('offer')}>{busy === 'offer' ? 'Checking account…' : 'Make an Offer'}</button>}</div>
+        {showOffer && product.status === 'available' && <form className="offerPanel" onSubmit={sendOffer}><h2>Make an Offer</h2><p>Listed price: {money(product.price)}</p><label htmlFor="offer-amount">Your offer (PHP)</label><input id="offer-amount" type="number" min="0.01" step="0.01" max={Number(product.price) - 0.01} inputMode="decimal" autoFocus required value={amount} disabled={Boolean(busy)} onChange={(event) => setAmount(event.target.value)} /><div className="offerButtons"><button className="primary" disabled={Boolean(busy)}>{busy === 'send' ? 'Submitting…' : 'Submit Offer'}</button><button className="secondaryAction" type="button" disabled={Boolean(busy)} onClick={() => setShowOffer(false)}>Cancel</button></div></form>}
+        <button className="shareAction" type="button" onClick={share}>↗ Share this find</button>
+        <div className="shippingNote"><h2>Delivery information</h2><p>Luzon / Visayas — ₱89</p><p>Mindanao — ₱69</p><p>Meetup in Pagadian City — Free</p><p>Local Pagadian delivery — Starts at ₱30</p><small>Confirm the final delivery fee and payment arrangement with the seller before dispatch.</small></div>
+        <div className="shippingNote"><h2>Connect with the seller</h2><p><a href="https://www.facebook.com/kilme.rudy" target="_blank" rel="noopener noreferrer">Facebook · KILME RUDY ↗</a></p><p><a href="https://www.instagram.com/talkthriftwhsorudy/" target="_blank" rel="noopener noreferrer">Instagram · @talkthriftwhsorudy ↗</a></p></div>
+      </section></div>}
+    <LoginDialog open={loginOpen} next={`/product/${id}`} onClose={() => setLoginOpen(false)} />
+  </main>;
 }
