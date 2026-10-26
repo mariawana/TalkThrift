@@ -1,544 +1,111 @@
-
 'use client';
-
-import {
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-
-type Conversation = {
-  id: string;
-  buyer_id: string;
-  product_id: string;
-  created_at: string;
-  products: {
-    name: string;
-    price: number;
-    image_url: string | null;
-  } | null;
-};
-
-type Message = {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
-};
-
+import { Alert } from '../components/StoreUI';
+import type { Notice } from '../components/StoreUI';
+type Conversation = { id: string; buyer_id: string; product_id: string; products: { name: string; price: number } | null };
+type Message = { id: string; sender_id: string; body: string; created_at: string };
 export default function MessagesPage() {
-  return (
-    <Suspense
-      fallback={
-        <main style={{ padding: 24 }}>
-          Loading messages...
-        </main>
-      }
-    >
-      <MessagesContent />
-    </Suspense>
-  );
-}
-
-function MessagesContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const requestedId = searchParams.get('conversation');
-
   const [userId, setUserId] = useState('');
-  const [isOwner, setIsOwner] = useState(false);
-  const [conversations, setConversations] = useState<
-    Conversation[]
-  >([]);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    requestedId
-  );
+  const [owner, setOwner] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  const loadConversations = useCallback(async () => {
-    if (!supabase) return;
-
-    const { data, error: queryError } = await supabase
-      .from('conversations')
-      .select(
-        'id,buyer_id,product_id,created_at,products(name,price,image_url)'
-      )
-      .order('created_at', { ascending: false });
-
-    if (queryError) {
-      setError(queryError.message);
-      return;
-    }
-
-    const items = (data ?? []) as unknown as Conversation[];
-
-    setConversations(items);
-
-    setSelectedId((current) => {
-      if (
-        requestedId &&
-        items.some(
-          (conversation) => conversation.id === requestedId
-        )
-      ) {
-        return requestedId;
-      }
-
-      if (
-        current &&
-        items.some(
-          (conversation) => conversation.id === current
-        )
-      ) {
-        return current;
-      }
-
-      return items[0]?.id ?? null;
-    });
-  }, [requestedId]);
-
-  const loadMessages = useCallback(
-    async (conversationId: string) => {
-      if (!supabase) return;
-
-      const { data, error: queryError } = await supabase
-        .from('messages')
-        .select(
-          'id,conversation_id,sender_id,body,created_at'
-        )
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (queryError) {
-        setError(queryError.message);
-        return;
-      }
-
-      setMessages((data ?? []) as Message[]);
-    },
-    []
-  );
-
+  const [threadLoading, setThreadLoading] = useState(false);
+  const [mobileThread, setMobileThread] = useState(false);
+  const [notice, setNotice] = useState<Notice>(null);
+  const [retry, setRetry] = useState(0);
+  const messageBox = useRef<HTMLDivElement>(null);
+  const selection = useRef<string | null>(null);
+  const requestCount = useRef(0);
+  const sending = useRef(false);
+  const drafts = useRef(new Map<string, string>());
   useEffect(() => {
     let active = true;
-
-    async function initialize() {
-      if (!supabase) {
-        setError('Supabase is not configured.');
-        setLoading(false);
-        return;
-      }
-
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (!active) return;
-
-      if (authError || !user) {
-        router.replace(
-          `/account?next=${encodeURIComponent('/messages')}`
-        );
-        return;
-      }
-
-      setUserId(user.id);
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!active) return;
-
-      setIsOwner(profile?.role === 'owner');
-
-      await loadConversations();
-
-      if (active) {
-        setLoading(false);
-      }
-    }
-
-    void initialize();
-
-    return () => {
-      active = false;
-    };
-  }, [router, loadConversations]);
-
+    setLoading(true);
+    (async () => {
+      try {
+        if (!supabase) throw new Error();
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (!active) return;
+        if (!user && (!error || error.name === 'AuthSessionMissingError')) { router.replace('/account?next=%2Fmessages'); return; }
+        if (error || !user) throw new Error();
+        const [{ data: profile, error: profileError }, { data, error: queryError }] = await Promise.all([
+          supabase.from('profiles').select('role').eq('id', user.id).maybeSingle(),
+          supabase.from('conversations').select('id,buyer_id,product_id,products(name,price)').order('created_at', { ascending: false }),
+        ]);
+        if (profileError || queryError) throw new Error();
+        if (!active) return;
+        setUserId(user.id); setOwner(profile?.role === 'owner');
+        const items = (data ?? []) as unknown as Conversation[];
+        setConversations(items);
+        const wanted = new URLSearchParams(location.search).get('conversation');
+        if (wanted && items.some((item) => item.id === wanted)) { setSelectedId(wanted); setMobileThread(true); }
+        else setSelectedId((current) => items.some((item) => item.id === current) ? current : items[0]?.id ?? null);
+      } catch { if (active) setNotice({ type: 'error', text: 'Unable to load your inbox. Check your connection, then try Refresh.' }); }
+      finally { if (active) setLoading(false); }
+    })();
+    return () => { active = false; };
+  }, [router, retry]);
+  const fetchMessages = useCallback(async (id: string, quiet = false) => {
+    if (!supabase) return;
+    const request = ++requestCount.current;
+    try {
+      const { data, error } = await supabase.from('messages').select('id,sender_id,body,created_at').eq('conversation_id', id).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(200);
+      if (selection.current !== id || request !== requestCount.current) return;
+      if (error) throw error;
+      setMessages(((data ?? []) as Message[]).reverse());
+    } catch {
+      if (!quiet && selection.current === id) setNotice({ type: 'error', text: 'Unable to load messages. Your draft is still here. Try Refresh.' });
+    } finally { if (selection.current === id && request === requestCount.current) setThreadLoading(false); }
+  }, []);
   useEffect(() => {
-    if (!selectedId) {
-      setMessages([]);
-      return;
-    }
-
-    void loadMessages(selectedId);
-
-    const interval = window.setInterval(() => {
-      void loadMessages(selectedId);
-    }, 4000);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [selectedId, loadMessages]);
-
+    selection.current = selectedId;
+    setMessages([]);
+    if (!selectedId) return;
+    setThreadLoading(true);
+    void fetchMessages(selectedId);
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void fetchMessages(selectedId, true); }, 4000);
+    return () => { window.clearInterval(timer); selection.current = null; requestCount.current++; };
+  }, [selectedId, fetchMessages]);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: 'smooth',
-    });
+    const box = messageBox.current;
+    if (box) box.scrollTop = box.scrollHeight;
   }, [messages.length, selectedId]);
-
-  async function sendMessage(
-    event: FormEvent<HTMLFormElement>
-  ) {
-    event.preventDefault();
-
-    if (!supabase || !userId || !selectedId || busy) {
-      return;
-    }
-
-    const body = draft.trim();
-
-    if (!body || body.length > 2000) {
-      setError(
-        'Message must be between 1 and 2000 characters.'
-      );
-      return;
-    }
-
-    setBusy(true);
-    setError('');
-
-    const { error: insertError } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: selectedId,
-        sender_id: userId,
-        body,
-      });
-
-    if (insertError) {
-      setError(`Message not sent: ${insertError.message}`);
-    } else {
-      setDraft('');
-      await loadMessages(selectedId);
-    }
-
-    setBusy(false);
+  function selectConversation(id: string) {
+    if (selectedId) drafts.current.set(selectedId, draft);
+    setSelectedId(id); setDraft(drafts.current.get(id) ?? ''); setMobileThread(true); setNotice(null);
+    history.replaceState({}, '', `/messages?conversation=${encodeURIComponent(id)}`);
   }
-
-  const selected = conversations.find(
-    (conversation) => conversation.id === selectedId
-  );
-
-  const time = (value: string) =>
-    new Date(value).toLocaleString('en-PH', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
-
-  const money = (value: number) =>
-    `₱${Number(value).toLocaleString('en-PH')}`;
-
-  return (
-    <main
-      style={{
-        maxWidth: 1150,
-        margin: '0 auto',
-        padding: '24px 16px',
-        color: '#26221e',
-      }}
-    >
-      <Link
-        href="/"
-        style={{
-          color: 'inherit',
-          textDecoration: 'none',
-        }}
-      >
-        ← Back to TalkThrift
-      </Link>
-
-      <h1 style={{ fontSize: 32, marginBottom: 4 }}>
-        Messages
-      </h1>
-
-      <p style={{ color: '#6b625b', marginTop: 0 }}>
-        Chat privately with{' '}
-        {isOwner ? 'your customers' : 'the TalkThrift seller'}.
-      </p>
-
-      {error && (
-        <p
-          role="alert"
-          style={{
-            padding: 12,
-            background: '#fff0eb',
-            borderRadius: 8,
-          }}
-        >
-          {error}
-        </p>
-      )}
-
-      {loading ? (
-        <p>Loading your inbox...</p>
-      ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'minmax(130px, 280px) minmax(0, 1fr)',
-            minHeight: 520,
-            border: '1px solid #ddd5cd',
-            borderRadius: 12,
-            overflow: 'hidden',
-            background: '#fff',
-          }}
-        >
-          <aside
-            style={{
-              borderRight: '1px solid #ddd5cd',
-              overflowY: 'auto',
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 16,
-                padding: '16px 12px',
-                margin: 0,
-              }}
-            >
-              Conversations
-            </h2>
-
-            {conversations.length === 0 && (
-              <p style={{ padding: 12, fontSize: 14 }}>
-                No conversations yet. Open a product and
-                select Message Seller.
-              </p>
-            )}
-
-            {conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                type="button"
-                onClick={() => {
-                  setSelectedId(conversation.id);
-                  setError('');
-                }}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: 14,
-                  border: 0,
-                  borderBottom: '1px solid #eee',
-                  background:
-                    selectedId === conversation.id
-                      ? '#f0e9df'
-                      : '#fff',
-                  color: '#26221e',
-                  cursor: 'pointer',
-                }}
-              >
-                <strong
-                  style={{
-                    display: 'block',
-                    overflowWrap: 'anywhere',
-                  }}
-                >
-                  {conversation.products?.name ?? 'Product'}
-                </strong>
-
-                <small
-                  style={{
-                    display: 'block',
-                    marginTop: 4,
-                    color: '#756b62',
-                  }}
-                >
-                  {isOwner
-                    ? `Buyer ${conversation.buyer_id.slice(0, 8)}…`
-                    : 'TalkThrift Seller'}
-                </small>
-              </button>
-            ))}
-          </aside>
-
-          <section
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              minWidth: 0,
-            }}
-          >
-            {selected ? (
-              <>
-                <header
-                  style={{
-                    padding: 16,
-                    borderBottom: '1px solid #eee',
-                  }}
-                >
-                  <strong>
-                    {selected.products?.name ??
-                      'Product conversation'}
-                  </strong>
-
-                  {selected.products && (
-                    <span
-                      style={{
-                        marginLeft: 10,
-                        color: '#786d63',
-                      }}
-                    >
-                      {money(selected.products.price)}
-                    </span>
-                  )}
-
-                  <div>
-                    <Link
-                      href={`/product/${selected.product_id}`}
-                      style={{ fontSize: 13 }}
-                    >
-                      View product
-                    </Link>
-                  </div>
-                </header>
-
-                <div
-                  style={{
-                    flex: 1,
-                    minHeight: 350,
-                    maxHeight: 550,
-                    overflowY: 'auto',
-                    padding: 16,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 12,
-                  }}
-                >
-                  {messages.length === 0 && (
-                    <p style={{ color: '#756b62' }}>
-                      Start your conversation below.
-                    </p>
-                  )}
-
-                  {messages.map((message) => {
-                    const mine =
-                      message.sender_id === userId;
-
-                    return (
-                      <div
-                        key={message.id}
-                        style={{
-                          alignSelf: mine
-                            ? 'flex-end'
-                            : 'flex-start',
-                          maxWidth: '85%',
-                          padding: '10px 14px',
-                          background: mine
-                            ? '#e2eadc'
-                            : '#f3f0ec',
-                          borderRadius: 14,
-                          overflowWrap: 'anywhere',
-                        }}
-                      >
-                        <div
-                          style={{ whiteSpace: 'pre-wrap' }}
-                        >
-                          {message.body}
-                        </div>
-
-                        <small
-                          style={{
-                            display: 'block',
-                            marginTop: 5,
-                            color: '#70685f',
-                          }}
-                        >
-                          {mine
-                            ? 'You'
-                            : isOwner
-                              ? 'Buyer'
-                              : 'Seller'}
-                          {' · '}
-                          {time(message.created_at)}
-                        </small>
-                      </div>
-                    );
-                  })}
-
-                  <div ref={bottomRef} />
-                </div>
-
-                <form
-                  onSubmit={sendMessage}
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    padding: 12,
-                    borderTop: '1px solid #eee',
-                  }}
-                >
-                  <input
-                    aria-label="Your message"
-                    value={draft}
-                    maxLength={2000}
-                    onChange={(event) =>
-                      setDraft(event.target.value)
-                    }
-                    placeholder="Type a message..."
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      padding: 12,
-                      border: '1px solid #cfc6bd',
-                      borderRadius: 8,
-                    }}
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={busy || !draft.trim()}
-                    style={{
-                      padding: '10px 16px',
-                      border: 0,
-                      borderRadius: 8,
-                      background: '#313d2c',
-                      color: '#fff',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {busy ? 'Sending...' : 'Send'}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <div style={{ padding: 24 }}>
-                Select a conversation to start chatting.
-              </div>
-            )}
-          </section>
-        </div>
-      )}
-    </main>
-  );
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!supabase || !selectedId || !userId || sending.current) return;
+    const body = draft.trim(), id = selectedId;
+    if (!body || body.length > 2000) { setNotice({ type: 'error', text: 'Enter a message between 1 and 2,000 characters.' }); return; }
+    sending.current = true; setBusy(true); setNotice(null);
+    try {
+      const { error } = await supabase.from('messages').insert({ conversation_id: id, sender_id: userId, body });
+      if (error) throw error;
+      drafts.current.delete(id);
+      if (selection.current === id) { setDraft(''); await fetchMessages(id); }
+    } catch { setNotice({ type: 'error', text: 'Message not confirmed as sent. Your draft is kept. Refresh the conversation before retrying to avoid sending a duplicate.' }); }
+    finally { setBusy(false); sending.current = false; }
+  }
+  const selected = conversations.find((item) => item.id === selectedId);
+  return <main className="ttMessagesPage"><div className="ttPageHeading"><div><h1>Messages</h1><p>Chat privately with {owner ? 'your customers' : 'the TalkThrift seller'}.</p></div><button className="secondary" type="button" disabled={busy || loading} onClick={() => { setNotice(null); setRetry((value) => value + 1); if (selectedId) void fetchMessages(selectedId); }}>Refresh</button></div><Alert notice={notice} />
+    {loading ? <p role="status">Loading your inbox…</p> : <div className={`ttInbox ${mobileThread ? 'ttShowThread' : ''}`}>
+      <aside className="ttConversationList" aria-label="Conversations"><h2>Conversations</h2>{!conversations.length && <div className="ttInboxEmpty"><p>No conversations yet. Open a product and select Message Seller.</p><Link className="secondary" href="/#shop">Browse finds ↗</Link></div>}{conversations.map((item) => <button key={item.id} type="button" disabled={busy} className={selectedId === item.id ? 'isSelected' : ''} aria-pressed={selectedId === item.id} onClick={() => selectConversation(item.id)}><strong>{item.products?.name ?? 'Product conversation'}</strong><small>{owner ? `Customer ${item.buyer_id.slice(0, 8)}` : 'TalkThrift Seller'} · #{item.id.slice(0, 5)}</small></button>)}</aside>
+      <section className="ttThread" aria-label="Selected conversation">{selected ? <><header className="ttThreadHeading"><button type="button" className="ttThreadBack secondary" onClick={() => setMobileThread(false)}>← Conversations</button><strong>{selected.products?.name ?? 'Product conversation'}</strong><Link href={`/product/${selected.product_id}`}>View product ↗</Link></header>
+        <div ref={messageBox} className="ttMessageHistory" role="log" aria-label="Conversation messages" aria-live="polite" aria-relevant="additions"><p className="mutedNote">Showing up to the latest 200 messages. Updates every 4 seconds while this page is visible.</p>{threadLoading ? <p role="status">Loading conversation…</p> : !messages.length ? <p>Start your conversation below.</p> : messages.map((message) => <div key={message.id} className={`ttBubble ${message.sender_id === userId ? 'ttMine' : ''}`}><div>{message.body}</div><small>{message.sender_id === userId ? 'You' : owner ? 'Customer' : 'Seller'} · {new Date(message.created_at).toLocaleString('en-PH', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Asia/Manila' })}</small></div>)}</div>
+        <form className="ttComposer" onSubmit={send}><label className="ttSrOnly" htmlFor="message-draft">Your message</label><textarea id="message-draft" rows={2} maxLength={2000} value={draft} disabled={busy || threadLoading} onChange={(event) => setDraft(event.target.value)} placeholder="Type your message…" /><button className="primary" disabled={busy || threadLoading || !draft.trim()}>{busy ? 'Sending…' : 'Send ↗'}</button></form>
+      </> : <div className="ttInboxEmpty"><h2>Your conversations live here.</h2><p>Select a conversation, or open a product to message the seller.</p><Link className="primary" href="/#shop">Browse the collection ↗</Link></div>}</section>
+    </div>}
+  </main>;
 }
