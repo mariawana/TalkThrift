@@ -2068,3 +2068,401 @@ footer.ttFooter small {
     transition: none;
   }
 }
+/* TALKTHRIFT STOREFRONT IMPROVEMENTS */
+
+.ttSkipLink {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 200;
+  padding: 16px;
+  background: white;
+  color: #243f9b;
+}
+
+.ttSkipLink:focus {
+  top: 16px;
+}
+
+/* Hero */
+
+.ttHero {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: center;
+  gap: 36px;
+  padding: 65px 7%;
+  background: #f5f5f0;
+}
+
+.ttHeroCopy {
+  min-width: 0;
+}
+
+.ttHero h1 {
+  font-size: clamp(42px, 4.9vw, 72px);
+}
+
+.ttHeroDescription {
+  font-size: 15px;
+}
+
+.ttHeroArt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  min-height: 360px;
+  padding: 32px 20px;
+  overflow: hidden;
+  border-radius: 180px 180px 10px 10px;
+  background: #243f9b;
+  color: white;
+}
+
+.ttArtCaption,
+.ttArtFoot {
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.ttArtCard {
+  display: grid;
+  gap: 25px;
+  width: 85%;
+  padding: 24px;
+  background: #f1eddf;
+  color: #243f9b;
+  transform: rotate(-7deg);
+  box-shadow: 10px 12px 0 #182d78;
+}
+
+.ttArtCard > span {
+  font-size: 8px;
+  letter-spacing: 1.3px;
+}
+
+.ttArtCard strong {
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(26px, 3vw, 41px);
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Store highlights */
+
+.ttTrust {
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 20px;
+  border-bottom: 1px solid #dfe4ef;
+  background: #edf0f9;
+  color: #243f9b;
+  font-size: 11px;
+}
+
+.ttPrimaryButton {
+  min-height: 44px;
+  border: 1px solid #243f9b;
+  cursor: pointer;
+}
+
+/* Search and sorting */
+
+.ttCatalogTools {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.ttCatalogTools .ttSearch {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+}
+
+.ttSort {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6c7486;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ttSort select {
+  max-width: 100%;
+  padding: 13px 10px;
+  border: 1px solid #dce1ec;
+  border-radius: 6px;
+  background: white;
+  color: #202b49;
+}
+
+.ttFilters button {
+  min-height: 44px;
+  font-size: 12px;
+}
+
+.ttSidebarNav a[aria-current="true"] {
+  background: #edf0f9;
+  color: #243f9b;
+  font-weight: 700;
+}
+
+/* Product cards */
+
+.ttProduct {
+  border-radius: 12px;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.ttProduct:focus-visible {
+  outline-offset: 4px;
+}
+
+.ttProductImage img {
+  transition: transform 0.3s ease;
+}
+
+.ttProductInfo h3 {
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.ttProductMeta {
+  color: #626d80;
+  line-height: 1.6;
+}
+
+.ttViewProduct {
+  padding-top: 14px;
+  border-top: 1px solid #dce1ec;
+}
+
+@media (hover: hover) {
+  .ttProduct:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 26px #19233f12;
+  }
+
+  .ttProduct:hover .ttProductImage img {
+    transform: scale(1.035);
+  }
+}
+
+/* Empty and error states */
+
+.ttEmpty {
+  padding: 55px 20px;
+  border: 1px dashed #dce1ec;
+  border-radius: 12px;
+  background: #f8f9fc;
+}
+
+.ttEmpty h3 {
+  color: #202b49;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 27px;
+  font-weight: 500;
+}
+
+.ttEmpty p {
+  line-height: 1.7;
+}
+
+.ttEmpty button {
+  margin-top: 16px;
+}
+
+/* Loading placeholders */
+
+.ttSkeleton {
+  padding-bottom: 15px;
+  overflow: hidden;
+  border: 1px solid #dce1ec;
+  border-radius: 12px;
+}
+
+.ttSkeleton > div {
+  aspect-ratio: 3 / 4;
+  background: #eef0f5;
+}
+
+.ttSkeleton p {
+  height: 14px;
+  margin: 18px;
+  border-radius: 4px;
+  background: #eef0f5;
+}
+
+.ttSkeleton p:last-child {
+  width: 40%;
+}
+
+/* Product details */
+
+.photoThumbnails button[aria-pressed="true"] {
+  border: 2px solid #243f9b;
+  background: #e8edff;
+}
+
+.detailsInfo {
+  line-height: 1.65;
+}
+
+.detailDescription p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.detailActions button {
+  min-height: 48px;
+}
+
+.shippingNote {
+  padding: 20px;
+  border-radius: 10px;
+  background: #f6f7fb;
+}
+
+.shippingNote p {
+  margin: 8px 0;
+  font-size: 13px;
+}
+
+/* Accessibility */
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #243f9b;
+  outline-offset: 3px;
+}
+
+.ttFooter a:hover {
+  text-decoration: underline;
+}
+
+#shop {
+  scroll-margin-top: 85px;
+}
+
+/* Small desktops */
+
+@media (min-width: 901px) and (max-width: 1100px) {
+  .ttHero {
+    grid-template-columns: 1fr;
+  }
+
+  .ttHeroArt {
+    display: none;
+  }
+}
+
+/* Tablets */
+
+@media (max-width: 900px) {
+  .ttMobileHeader {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+  .ttHero {
+    padding: 48px 25px;
+  }
+}
+
+/* Phones */
+
+@media (max-width: 600px) {
+  .ttHero {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+
+  .ttHero h1 {
+    font-size: clamp(39px, 10vw, 56px);
+  }
+
+  .ttHeroArt {
+    width: 100%;
+    max-width: 360px;
+    min-height: 260px;
+    margin: auto;
+    border-radius: 130px 130px 10px 10px;
+  }
+
+  .ttArtCard {
+    max-width: 260px;
+    gap: 15px;
+  }
+
+  .ttCatalogTools {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .ttSort {
+    justify-content: space-between;
+  }
+
+  .ttSort select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .ttSectionHeading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .ttTrust {
+    justify-content: flex-start;
+    font-size: 10px;
+  }
+
+  .ttProductInfo h3 {
+    font-size: 14px;
+  }
+
+  .ttFilters {
+    gap: 7px;
+  }
+
+  .ttFilters button {
+    padding: 9px 13px;
+  }
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .ttProduct,
+  .ttProductImage img,
+  .primary {
+    transition: none;
+  }
+
+  .ttProduct:hover,
+  .ttProduct:hover .ttProductImage img,
+  .primary:hover {
+    transform: none;
+  }
+}
