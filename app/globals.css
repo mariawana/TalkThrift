@@ -2238,3 +2238,35 @@ footer.ttFooter { background: #19233f; color: #fff; }
   .orderCard { padding: 16px; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior: auto !important; } .ttMarqueeTrack { animation: none; } .ttSidebar,.ttProduct,.ttProductImage img { transition: none; } }
+
+/* Navigation and collection-inspired homepage */
+.ttPageNav { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px clamp(16px,5vw,55px); background:var(--paper); border-bottom:1px solid var(--line); }
+.ttPageMenuButton { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:7px; background:var(--paper); color:var(--ink); padding:10px 14px; font-size:12px; min-height:44px; }
+.ttDialogNav { display:grid; margin-top:15px; }
+.ttDialogNav a,.ttDialogNav .ttThemeNav { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; padding:15px 2px; border:0; border-bottom:1px solid var(--line); background:transparent; color:var(--ink); font-size:14px; text-align:left; }
+.ttThemeNav { display:flex !important; align-items:center; gap:10px; width:100%; padding:12px 13px; border:0; border-radius:8px; background:transparent; color:var(--ink); text-align:left; font:inherit; font-size:14px; }
+.ttThemeNav:hover { background:var(--blue-light); }
+.ttThemeNavHint { margin-left:auto; color:var(--muted); font-size:10px; letter-spacing:.1em; }
+.ttHero.ttHeroNew { grid-template-columns:1fr .92fr; gap:clamp(32px,5vw,80px); padding:clamp(48px,7vw,90px) 7%; background:var(--hero); }
+.ttHeroNew .ttHeroCopy { align-self:center; }
+.ttHeroNew h1 { font-size:clamp(52px,6.4vw,92px); line-height:1.02; letter-spacing:-.04em; margin:26px 0 24px; }
+.ttHeroNew .ttHeroDescription { font-size:15px; max-width:390px; line-height:1.8; }
+.ttHeroNew .ttPrimaryButton { display:inline-flex; align-items:center; justify-content:space-between; gap:35px; padding:15px 20px; }
+.ttHeroNew .ttPrimaryButton span { font-size:17px; }
+.ttHeroBottom { display:flex; flex-wrap:wrap; gap:14px; margin-top:55px; color:var(--muted); font-size:9px; font-weight:700; letter-spacing:.14em; }
+.ttHeroVisual { position:relative; background:var(--paper); border:1px solid var(--line); padding:14px; transform:rotate(2deg); box-shadow:14px 14px 0 var(--blue-light); }
+.ttHeroVisualTop,.ttHeroVisualBottom { display:flex; justify-content:space-between; gap:10px; padding:10px 3px; font-size:9px; letter-spacing:.13em; font-weight:700; color:var(--ink); }
+.ttHeroVisualBottom { color:var(--muted); padding-top:13px; }
+.ttFeaturePhoto,.ttFeaturePlaceholder { position:relative; display:block; aspect-ratio:4 / 4.5; overflow:hidden; background:#dee3ef; color:#fff; }
+.ttFeaturePhoto img { display:block; width:100%; height:100%; object-fit:cover; transition:transform .3s ease; }
+.ttFeaturePhoto:hover img { transform:scale(1.03); }
+.ttFeatureLabel { position:absolute; inset:auto 0 0; display:grid; gap:5px; padding:50px 20px 20px; background:linear-gradient(transparent,rgba(10,20,40,.85)); color:white; }
+.ttFeatureLabel span { font-size:10px; letter-spacing:.1em; }
+.ttFeatureLabel strong { font-size:19px; overflow-wrap:anywhere; }
+.ttFeaturePlaceholder { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:25px; padding:26px; background:#243f9b; text-align:center; }
+.ttFeaturePlaceholder > span { font:500 clamp(32px,4vw,58px)/1.08 'Playfair Display',Georgia,serif; }
+.ttFeaturePlaceholder small { font-size:9px; letter-spacing:.14em; }
+.ttHeroStamp { position:absolute; right:-20px; top:14%; display:grid; place-items:center; width:88px; height:88px; border-radius:50%; background:#dfefbc; color:#25351f; font-size:9px; font-weight:800; text-align:center; line-height:1.3; transform:rotate(12deg); box-shadow:0 3px 10px #0002; }
+@media(max-width:1100px) and (min-width:901px) { .ttHero.ttHeroNew { grid-template-columns:1fr 1fr; } }
+@media(max-width:700px) { .ttHero.ttHeroNew { grid-template-columns:1fr; gap:38px; padding:50px 22px 60px; } .ttHeroNew h1 { font-size:clamp(53px,11vw,76px); } .ttHeroBottom { margin-top:32px; } .ttHeroVisual { width:min(100%,440px); margin:auto; transform:rotate(1deg); } .ttHeroStamp { right:-9px; width:72px; height:72px; font-size:8px; } .ttFeaturePhoto,.ttFeaturePlaceholder { aspect-ratio:4 / 4; } }
+@media(prefers-reduced-motion:reduce) { .ttFeaturePhoto img { transition:none; } .ttFeaturePhoto:hover img { transform:none; } }
