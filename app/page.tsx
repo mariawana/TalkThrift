@@ -1,9 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { Alert, ThemeToggle } from './components/StoreUI';
+import {
+  Alert,
+  ThemeToggle,
+} from './components/StoreUI';
 
 type Product = {
   id: string;
@@ -67,7 +76,9 @@ export default function Home() {
         setMenuOpen(false);
       }
 
-      if (event.key !== 'Tab' || !mobile.matches) return;
+      if (event.key !== 'Tab' || !mobile.matches) {
+        return;
+      }
 
       const nodes = sidebar.current?.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled])'
@@ -78,7 +89,10 @@ export default function Home() {
       const first = nodes[0];
       const last = nodes[nodes.length - 1];
 
-      if (event.shiftKey && document.activeElement === first) {
+      if (
+        event.shiftKey &&
+        document.activeElement === first
+      ) {
         event.preventDefault();
         last.focus();
       } else if (
@@ -101,6 +115,7 @@ export default function Home() {
 
     return () => {
       document.body.style.overflow = previous;
+
       document.removeEventListener('keydown', onKey);
       mobile.removeEventListener('change', onResize);
 
@@ -174,7 +189,12 @@ export default function Home() {
         error,
       } = await client!.auth.getUser();
 
-      if (!active || version !== revision || error || !user) {
+      if (
+        !active ||
+        version !== revision ||
+        error ||
+        !user
+      ) {
         return;
       }
 
@@ -196,6 +216,7 @@ export default function Home() {
     } = client.auth.onAuthStateChange(() => {
       revision++;
       setIsOwner(false);
+
       clearTimeout(timer);
 
       timer = setTimeout(() => {
@@ -228,7 +249,8 @@ export default function Home() {
 
   const filtered = products.filter((product) => {
     const matchesCategory =
-      category === 'All' || product.category === category;
+      category === 'All' ||
+      product.category === category;
 
     const searchable =
       `${product.name} ${product.category} ` +
@@ -236,7 +258,9 @@ export default function Home() {
 
     return (
       matchesCategory &&
-      searchable.toLowerCase().includes(query.trim().toLowerCase())
+      searchable
+        .toLowerCase()
+        .includes(query.trim().toLowerCase())
     );
   });
 
@@ -253,7 +277,9 @@ export default function Home() {
   }
 
   if (sort === 'name') {
-    filtered.sort((a, b) => a.name.localeCompare(b.name));
+    filtered.sort((a, b) =>
+      a.name.localeCompare(b.name)
+    );
   }
 
   const price = (value: number) =>
@@ -266,12 +292,12 @@ export default function Home() {
     setCategory(value);
     setMenuOpen(false);
 
+    const reducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)'
+    ).matches;
+
     document.getElementById('shop')?.scrollIntoView({
-      behavior: window.matchMedia(
-        '(prefers-reduced-motion: reduce)'
-      ).matches
-        ? 'instant'
-        : 'smooth',
+      behavior: reducedMotion ? 'instant' : 'smooth',
     });
   }
 
@@ -282,7 +308,9 @@ export default function Home() {
     'KILME RUDY ON FACEBOOK · ' +
     'talkthriftwhsorudy on IG · ';
 
-  const featured = products.find((item) => item.image_url);
+  const featured = products.find(
+    (item) => item.image_url
+  );
 
   return (
     <main className="ttLayout">
@@ -344,7 +372,7 @@ export default function Home() {
           </button>
         </div>
 
-        <p className="ttTagline">PRELOVED. RELOVED.</p>
+        <p className="ttTagline">THRIFTED FINDS.</p>
 
         <nav className="ttSidebarNav">
           <a
@@ -436,14 +464,17 @@ export default function Home() {
         <div className="ttMarquee">
           <div className="ttMarqueeTrack">
             <span>{marqueeText}</span>
-            <span aria-hidden="true">{marqueeText}</span>
+
+            <span aria-hidden="true">
+              {marqueeText}
+            </span>
           </div>
         </div>
 
         <section className="ttHero ttHeroNew">
           <div className="ttHeroCopy">
             <p className="ttEyebrow">
-              PAGADIAN CITY · PRELOVED FINDS
+              PAGADIAN CITY · THRIFTED FINDS
             </p>
 
             <h1>
@@ -453,18 +484,20 @@ export default function Home() {
             </h1>
 
             <p className="ttHeroDescription">
-              Good finds, good prices, and pieces with a story.
-              Find your next favourite in our handpicked collection.
+              Good finds, good prices, and pieces with a
+              story. Find your next favourite in our
+              handpicked collection.
             </p>
 
             <a href="#shop" className="ttPrimaryButton">
               SHOP THE COLLECTION{' '}
+
               <span aria-hidden="true">↗</span>
             </a>
 
             <div className="ttHeroBottom">
               <span>01 / THE COLLECTION</span>
-              <span>PRELOVED. RELOVED.</span>
+              <span>THRIFTED FINDS.</span>
             </div>
           </div>
 
@@ -482,7 +515,9 @@ export default function Home() {
 
                 <span className="ttFeatureLabel">
                   <span>SPOTTED IN THE SHOP</span>
+
                   <strong>{featured.name}</strong>
+
                   <span>
                     {price(Number(featured.price))} ↗
                   </span>
@@ -493,6 +528,7 @@ export default function Home() {
                 <span>
                   GOOD THINGS
                   <br />
+
                   <em>LIVE ON.</em>
                 </span>
 
@@ -507,34 +543,45 @@ export default function Home() {
               <span>SCROLL TO EXPLORE ↓</span>
             </div>
 
-            <span className="ttHeroStamp" aria-hidden="true">
-              PRELOVED
+            <span
+              className="ttHeroStamp"
+              aria-hidden="true"
+            >
+              THRIFTED
               <br />
-              & LOVED ♡
+              FINDS ♡
             </span>
           </div>
         </section>
 
         <div className="ttTrust">
           <span>↗ Handpicked pieces</span>
-          <span>♡ Preloved, with personality</span>
+          <span>♡ Thrifted finds with personality</span>
           <span>⌂ Based in Pagadian City</span>
         </div>
 
         <section className="ttShop" id="shop">
           <div className="ttSectionHeading">
             <div>
-              <p className="ttEyebrow">THE COLLECTION</p>
+              <p className="ttEyebrow">
+                THE COLLECTION
+              </p>
+
               <h2>Shop the latest finds.</h2>
             </div>
 
-            <span role="status" aria-live="polite">
+            <span
+              role="status"
+              aria-live="polite"
+            >
               {loading
                 ? 'Loading collection…'
                 : loadError
                   ? 'Collection unavailable'
                   : `${filtered.length} ${
-                      filtered.length === 1 ? 'ITEM' : 'ITEMS'
+                      filtered.length === 1
+                        ? 'ITEM'
+                        : 'ITEMS'
                     }`}
             </span>
           </div>
@@ -560,10 +607,21 @@ export default function Home() {
                   setSort(event.target.value)
                 }
               >
-                <option value="newest">Newest first</option>
-                <option value="low">Price: low to high</option>
-                <option value="high">Price: high to low</option>
-                <option value="name">Name: A–Z</option>
+                <option value="newest">
+                  Newest first
+                </option>
+
+                <option value="low">
+                  Price: low to high
+                </option>
+
+                <option value="high">
+                  Price: high to low
+                </option>
+
+                <option value="name">
+                  Name: A–Z
+                </option>
               </select>
             </label>
           </div>
@@ -591,7 +649,10 @@ export default function Home() {
           <Alert
             notice={
               loadError
-                ? { type: 'error', text: loadError }
+                ? {
+                    type: 'error',
+                    text: loadError,
+                  }
                 : null
             }
           />
@@ -619,7 +680,8 @@ export default function Home() {
               <h3>Let’s try that again.</h3>
 
               <p>
-                Check your connection, then retry the collection.
+                Check your connection, then retry the
+                collection.
               </p>
 
               <button
@@ -691,7 +753,9 @@ export default function Home() {
                       {product.size
                         ? `Size ${product.size}`
                         : 'Size not listed'}
+
                       {' · '}
+
                       {product.condition}
                     </p>
 
@@ -712,7 +776,8 @@ export default function Home() {
         <footer className="ttFooter" id="footer">
           <div>
             <h2>TALKTHRIFT</h2>
-            <p>Your next find. Already loved.</p>
+
+            <p>Good finds, better prices.</p>
           </div>
 
           <div>
