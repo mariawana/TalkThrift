@@ -39,6 +39,13 @@ type Order = {
   total: number;
   status: string;
   created_at: string;
+  delivery_method: string | null;
+  shipping_region: string | null;
+  item_subtotal: number | null;
+  shipping_fee: number | null;
+  fee_confirmed: boolean | null;
+  payment_method: string | null;
+  payment_status: string | null;
 };
 
 type Offer = {
@@ -723,6 +730,35 @@ export default function Admin() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function confirmPayment(orderId: string) {
+    if (!supabase || !isOwner || busy) return;
+    if (!window.confirm('Confirm only if you have checked your account and received this payment. Continue?')) return;
+    setBusy(true); setMessage('');
+    try {
+      const { error } = await supabase.rpc('seller_confirm_payment', { p_order_id: orderId });
+      if (error) setMessage('Unable to confirm payment. Check the order status and try again.');
+      else { setMessage('Payment marked as received by the seller.'); await loadData(); }
+    } catch { setMessage('Unable to confirm payment. Please try again.'); }
+    finally { setBusy(false); }
+  }
+
+  async function confirmLocalFee(event: FormEvent<HTMLFormElement>, orderId: string) {
+    event.preventDefault();
+    if (!supabase || !isOwner || busy) return;
+    const value = String(new FormData(event.currentTarget).get('fee') ?? '').trim();
+    const amount = Number(value);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(value) || !Number.isFinite(amount) || amount < 30) {
+      setMessage('Enter a valid local delivery fee of at least ₱30.'); return;
+    }
+    setBusy(true); setMessage('');
+    try {
+      const { error } = await supabase.rpc('seller_confirm_local_fee', { p_order_id: orderId, p_fee: amount });
+      if (error) setMessage('Unable to confirm the local delivery fee. Check the order status.');
+      else { setMessage('Local delivery fee updated. Inform the customer of the final total.'); await loadData(); }
+    } catch { setMessage('Unable to update the delivery fee.'); }
+    finally { setBusy(false); }
   }
 
   async function updateOrderStatus(
@@ -1694,7 +1730,7 @@ export default function Admin() {
 
                   <p>
                     <strong>
-                      Total:
+                      {order.fee_confirmed === false ? 'Estimated total (starts at):' : 'Total:'}
                     </strong>{' '}
                     {money(
                       order.total
@@ -1709,6 +1745,14 @@ export default function Admin() {
                       order.created_at
                     )}
                   </p>
+                  {order.delivery_method && <div style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
+                    <p><strong>Delivery:</strong> {order.delivery_method === 'shipping' ? `Shipping · ${order.shipping_region ?? ''}` : order.delivery_method === 'meetup' ? 'Pagadian meetup' : 'Pagadian local delivery'}</p>
+                    <p><strong>Item subtotal:</strong> {money(order.item_subtotal ?? 0)}</p>
+                    <p><strong>Delivery fee:</strong> {money(order.shipping_fee ?? 0)} {order.fee_confirmed === false ? '(starting estimate — confirm final fee)' : ''}</p>
+                    <p><strong>{order.fee_confirmed === false ? 'Estimated total:' : 'Order total:'}</strong> {money(order.total)}</p>
+                    {order.delivery_method === 'shipping' && <><p><strong>Payment:</strong> {order.payment_method?.toUpperCase()} · {order.payment_status === 'verified' ? 'Verified by seller' : 'Awaiting verification'}</p>{order.payment_status === 'pending' && ['pending', 'confirmed', 'packed'].includes(order.status) && <><p>Check your payment account first. Do not dispatch until payment is confirmed.</p><button type="button" style={secondaryStyle} disabled={busy} onClick={() => void confirmPayment(order.id)}>Confirm payment received</button></>}</>}
+                    {order.delivery_method === 'local_delivery' && ['pending', 'confirmed', 'packed'].includes(order.status) && <form onSubmit={(event) => void confirmLocalFee(event, order.id)} style={{display:'grid',gap:8,marginTop:10}}><label htmlFor={`local-fee-${order.id}`}>Confirm final local delivery fee (₱30 minimum)</label><input id={`local-fee-${order.id}`} name="fee" type="number" min="30" step="0.01" defaultValue={order.shipping_fee ?? 30} required disabled={busy} style={inputStyle} /><button type="submit" style={secondaryStyle} disabled={busy}>Confirm local delivery fee</button></form>}
+                  </div>}
 
                   <label
                     htmlFor={
