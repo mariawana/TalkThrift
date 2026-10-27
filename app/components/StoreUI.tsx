@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export type Notice = { type: 'error' | 'success' | 'info'; text: string } | null;
 export function Alert({ notice }: { notice: Notice }) {
@@ -42,33 +43,61 @@ export function LoginDialog({ open, next, onClose }: { open: boolean; next: stri
       <button className="ttPlainButton" type="button" onClick={onClose}>Not Now</button></div>
   </Modal>;
 }
-export function SiteTools() {
-  const pathname = usePathname();
+export function ThemeToggle() {
   const [theme, setTheme] = useState('light');
   useEffect(() => {
-    setTheme(document.documentElement.dataset.theme ?? 'light');
     const media = matchMedia('(prefers-color-scheme: dark)');
-    const sync = () => {
+    function sync() {
       let saved: string | null = null;
       try { saved = localStorage.getItem('talkthrift-theme'); } catch {}
-      const next = saved === 'dark' || saved === 'light' ? saved : media.matches ? 'dark' : 'light';
-      document.documentElement.dataset.theme = next;
-      setTheme(next);
-    };
+      const value = saved === 'dark' || saved === 'light' ? saved : media.matches ? 'dark' : 'light';
+      document.documentElement.dataset.theme = value;
+      setTheme(value);
+    }
+    sync();
     media.addEventListener('change', sync);
     window.addEventListener('storage', sync);
-    return () => { media.removeEventListener('change', sync); window.removeEventListener('storage', sync); };
+    window.addEventListener('talkthrift-theme-change', sync);
+    return () => { media.removeEventListener('change', sync); window.removeEventListener('storage', sync); window.removeEventListener('talkthrift-theme-change', sync); };
   }, []);
-  function toggleTheme() {
-    const next = theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
-    setTheme(next);
-    try { localStorage.setItem('talkthrift-theme', next); } catch {}
+  function toggle() {
+    const value = theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = value;
+    setTheme(value);
+    try { localStorage.setItem('talkthrift-theme', value); } catch {}
+    window.dispatchEvent(new Event('talkthrift-theme-change'));
   }
-  return <div className="ttSiteTools" aria-label="Page controls">
-    <Link href="/">{pathname === '/' ? 'TALKTHRIFT' : '← Back to Store'}</Link>
-    <div><Link href="/account">Account</Link><button className="ttThemeButton" type="button" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
-      {theme === 'dark' ? '☀ Light' : '☾ Dark'}
-    </button></div>
-  </div>;
+  return <button className="ttThemeNav" type="button" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
+    <span aria-hidden="true">{theme === 'dark' ? '☀' : '☾'}</span><span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span><span className="ttThemeNavHint">{theme === 'dark' ? 'ON' : 'OFF'}</span>
+  </button>;
+}
+export function SiteTools() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  useEffect(() => { setOpen(false); }, [pathname]);
+  useEffect(() => {
+    if (!open || !supabase) return;
+    const client = supabase;
+    let active = true;
+    setIsOwner(false);
+    (async () => {
+      const { data: { user }, error } = await client.auth.getUser();
+      if (!active || error || !user) return;
+      const { data } = await client.from('profiles').select('role').eq('id', user.id).maybeSingle();
+      if (active) setIsOwner(data?.role === 'owner');
+    })();
+    return () => { active = false; };
+  }, [open]);
+  if (pathname === '/') return null;
+  return <><header className="ttPageNav"><Link href="/" className="ttLogo">TALK<span>THRIFT</span></Link><button type="button" className="ttMenuButton ttPageMenuButton" aria-label="Open navigation menu" aria-haspopup="dialog" onClick={() => setOpen(true)}>☰ <span>MENU</span></button></header>
+    <Modal open={open} title="Menu" onClose={() => setOpen(false)}><nav className="ttDialogNav" aria-label="Store navigation">
+      <Link href="/#shop" onClick={() => setOpen(false)}>Shop all <span>↗</span></Link>
+      <Link href="/account" onClick={() => setOpen(false)}>Account / Sign in <span>↗</span></Link>
+      <Link href="/orders" onClick={() => setOpen(false)}>My orders <span>↗</span></Link>
+      <Link href="/messages" onClick={() => setOpen(false)}>Messages <span>↗</span></Link>
+      {isOwner && <Link href="/admin" onClick={() => setOpen(false)}>Seller dashboard <span>↗</span></Link>}
+      <Link href="/#footer" onClick={() => setOpen(false)}>Contact <span>↗</span></Link>
+      <ThemeToggle />
+    </nav></Modal></>;
 }
