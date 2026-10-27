@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { Alert } from './components/StoreUI';
+import { Alert, ThemeToggle } from './components/StoreUI';
 
 type Product = {
   id: string;
@@ -186,22 +186,6 @@ export default function Home() {
             gap: 12,
           }}
         >
-          <Link
-            href="/messages"
-            aria-label="Open Messages"
-            title="Messages"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 40,
-              height: 40,
-              color: 'inherit',
-              textDecoration: 'none',
-            }}
-          >
-            <MessageIcon size={23} />
-          </Link>
 
           <button
             type="button"
@@ -313,6 +297,9 @@ export default function Home() {
             Messages
           </Link>
 
+          <p className="ttNavLabel">DISPLAY</p>
+          <ThemeToggle />
+
           <p className="ttNavLabel">MORE</p>
 
           <a
@@ -340,52 +327,25 @@ export default function Home() {
           </div>
         </div>
 
-        <section className="ttHero">
+        <section className="ttHero ttHeroNew">
           <div className="ttHeroCopy">
-          <p className="ttEyebrow">
-            CURATED PRELOVED FINDS
-          </p>
-
-          <h1>
-            Your next find.
-            <br />
-            <em>Already loved.</em>
-          </h1>
-
-          <p className="ttHeroDescription">
-            Discover handpicked preloved pieces made
-            for your personal style. Great finds,
-            better stories.
-          </p>
-
-          <a href="#shop" className="ttPrimaryButton">
-            EXPLORE COLLECTION ↗
-          </a>
-
-          <div style={{ marginTop: 24 }}>
-            <Link
-              href="/messages"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 10,
-                color: 'inherit',
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                textDecoration: 'underline',
-                textUnderlineOffset: 5,
-              }}
-            >
-              <MessageIcon size={19} />
-              YOUR MESSAGES ↗
-            </Link>
+            <p className="ttEyebrow">PAGADIAN CITY · PRELOVED FINDS</p>
+            <h1>Wear what<br /><em>you love.</em></h1>
+            <p className="ttHeroDescription">Good finds, good prices, and pieces with a story. Find your next favourite in our handpicked collection.</p>
+            <a href="#shop" className="ttPrimaryButton">SHOP THE COLLECTION <span aria-hidden="true">↗</span></a>
+            <div className="ttHeroBottom"><span>01 / THE COLLECTION</span><span>PRELOVED. RELOVED.</span></div>
           </div>
-          </div>
-          <div className="ttHeroArt" aria-hidden="true">
-            <span className="ttArtCaption">THE ART OF A GOOD FIND</span>
-            <div className="ttArtCard"><span>TT / PRELOVED COLLECTION</span><strong>Good style.<br /><em>Second story.</em></strong><span>CURATED WITH CARE ↗</span></div>
-            <span className="ttArtFoot">PRELOVED. RELOVED. REPEAT.</span>
+          <div className="ttHeroVisual">
+            <div className="ttHeroVisualTop"><span>THE GOOD FINDS EDIT</span><span>TT / 01</span></div>
+            {products.find((item) => item.image_url) ? (() => {
+              const featured = products.find((item) => item.image_url)!;
+              return <Link className="ttFeaturePhoto" href={`/product/${featured.id}`} aria-label={`View ${featured.name}`}>
+                <img src={featured.image_url!} alt={featured.name} />
+                <span className="ttFeatureLabel"><span>SPOTTED IN THE SHOP</span><strong>{featured.name}</strong><span>{price(Number(featured.price))} ↗</span></span>
+              </Link>;
+            })() : <div className="ttFeaturePlaceholder"><span>GOOD THINGS<br /><em>LIVE ON.</em></span><small>THE NEXT CHAPTER STARTS HERE ↗</small></div>}
+            <div className="ttHeroVisualBottom"><span>HANDPICKED FOR YOU</span><span>SCROLL TO EXPLORE ↓</span></div>
+            <span className="ttHeroStamp" aria-hidden="true">PRELOVED<br />& LOVED ♡</span>
           </div>
         </section>
         <div className="ttTrust"><span>↗ Handpicked pieces</span><span>♡ Preloved, with personality</span><span>⌂ Based in Pagadian City</span></div>
