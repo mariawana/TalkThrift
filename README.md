@@ -1,14 +1,14 @@
-## TalkThrift
+# TalkThrift
 
-# About TalkThrift
+## About TalkThrift
 
 TalkThrift is our little online thrift store for handpicked preloved clothes that deserve another chance to be worn and loved.
 
-# Why I Built This Website
+## Why I Built This Website
 
 I wanted to create a space where customers can easily browse our available items without scrolling through different social media posts. It's also a personal project where I can improve my skills while growing our small business.
 
-# Still Improving
+## Still Improving
 
 TalkThrift is still a work in progress. I'm continuously improving the website to make shopping easier and more convenient for everyone.
 
