@@ -1,17 +1,40 @@
 # TalkThrift
 
-## About TalkThrift
+**Your next find. Already loved.**
 
-TalkThrift is our little online thrift store for handpicked preloved clothes that deserve another chance to be worn and loved.
+TalkThrift is an online thrift store project featuring handpicked preloved clothing. It provides an organized and convenient way to browse, discover, and shop for secondhand fashion.
 
-## Why I Built This Website
+## 🌐 Live Website
 
-I wanted to create a space where customers can easily browse our available items without scrolling through different social media posts. It's also a personal project where I can improve my skills while growing our small business.
+[**Visit TalkThrift**](https://talk-thrift-gwbq.vercel.app/)
 
-## Still Improving
+## ✨ Features
 
-TalkThrift is still a work in progress. I'm continuously improving the website to make shopping easier and more convenient for everyone.
+- Browse preloved clothing
+- Product photos and descriptions
+- Search and category filters
+- Shopping cart and checkout
+- Customer accounts
+- Order management
+- Customer and seller messaging
+- Responsive user interface
 
-Thank you for supporting our little thrift business. Every purchase and bit of support means a lot to us. ♡
+## 🛠️ Built With
 
-TalkThrift — Good finds, new stories.
+- React
+- TypeScript
+- CSS
+- Supabase
+- Vercel
+
+## 🎯 Purpose
+
+TalkThrift was created to make online thrift shopping more organized and accessible while giving preloved clothing another chance to be loved.
+
+## 👩‍💻 Developer
+
+Created by **Mariawana**.
+
+---
+
+*Your next find. Already loved.*
